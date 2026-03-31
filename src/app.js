@@ -37,6 +37,10 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Base Route
+app.get('/', (req, res) => {
+  res.redirect('/api-docs');
+});
+
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
