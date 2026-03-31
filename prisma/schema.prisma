@@ -1,0 +1,417 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String               @id @default(uuid())
+  username            String               @unique
+  email               String               @unique
+  password            String
+  isDeleted           Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  namaLengkap         String               @default("")
+  role                String               @default("user")
+  foto                String?
+  activityLogs        ActivityLog[]        @relation("UserActivities")
+  activityLogsArchive ActivityLogArchive[] @relation("UserArchiveActivities")
+  editedTasks         DataP3k[]            @relation("TaskEditor")
+  tasks               TaskPeremajaan[]     @relation("PeremajaanAssignmentUser")
+  usulanTasks         TaskUsulan[]         @relation("UsulanAssignmentUser")
+  usulanEditedTasks   UsulanPerpanjangan[] @relation("UsulanEditor")
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+model P3kCsvImport {
+  id                    String   @id @default(uuid())
+  nipLama               String?
+  nipBaru               String   @unique
+  pnsId                 String   @unique
+  nama                  String
+  gelarDepan            String?
+  gelarBelakang         String?
+  tempatLahirId         String?
+  tempatLahirNama       String?
+  tanggalLahir          String?
+  jenisKelamin          String?
+  agamaId               String?
+  agamaNama             String?
+  jenisKawinId          String?
+  jenisKawinNama        String?
+  nik                   String?
+  nomorHp               String?
+  email                 String?
+  emailGov              String?
+  alamat                String?
+  npwpNomor             String?
+  bpjs                  String?
+  jenisPegawaiId        String?
+  jenisPegawaiNama      String?
+  kedudukanHukumId      String?
+  kedudukanHukumNama    String?
+  statusCpnsPns         String?
+  kartuAsnVirtual       String?
+  nomorSkCpns           String?
+  tanggalSkCpns         String?
+  tmtCpns               String?
+  nomorSkPns            String?
+  tanggalSkPns          String?
+  tmtPns                String?
+  golAwalId             String?
+  golAwalNama           String?
+  golAkhirId            String?
+  golAkhirNama          String?
+  tmtGolongan           String?
+  mkTahun               String?
+  mkBulan               String?
+  jenisJabatanId        String?
+  jenisJabatanNama      String?
+  jabatanId             String?
+  jabatanNama           String?
+  tmtJabatan            String?
+  tingkatPendidikanId   String?
+  tingkatPendidikanNama String?
+  pendidikanId          String?
+  pendidikanNama        String?
+  tahunLulus            String?
+  kpknId                String?
+  kpknNama              String?
+  lokasiKerjaId         String?
+  lokasiKerjaNama       String?
+  unorId                String?
+  unorNama              String?
+  instansiIndukId       String?
+  instansiIndukNama     String?
+  instansiKerjaId       String?
+  instansiKerjaNama     String?
+  satuanKerjaIndukId    String?
+  satuanKerjaIndukNama  String?
+  satuanKerjaKerjaId    String?
+  satuanKerjaKerjaNama  String?
+  isValidNik            String?
+  namaSekolah           String?
+  flagIkd               String?
+  isDeleted             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  unorInduk             String?
+
+  @@map("p3k_csv_imports")
+}
+
+model ArsipSkPensiun {
+  id        String    @id @default(uuid())
+  nomorSk   String    @unique
+  tanggalSk String?
+  fileUrl   String?
+  isDeleted Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  dataP3k   DataP3k[]
+
+  @@map("arsip_sk_pensiun")
+}
+
+model RefUnor {
+  id        String    @id @default(uuid())
+  nama      String    @unique
+  isDeleted Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  dataP3ks  DataP3k[]
+
+  @@map("ref_unor")
+}
+
+model DataP3k {
+  id                    String               @id @default(uuid())
+  nipLama               String?
+  nipBaru               String               @unique
+  pnsId                 String               @unique
+  nama                  String
+  gelarDepan            String?
+  gelarBelakang         String?
+  tempatLahirId         String?
+  tempatLahirNama       String?
+  tanggalLahir          String?
+  jenisKelamin          String?
+  agamaId               String?
+  agamaNama             String?
+  jenisKawinId          String?
+  jenisKawinNama        String?
+  nik                   String?
+  nomorHp               String?
+  email                 String?
+  emailGov              String?
+  alamat                String?
+  npwpNomor             String?
+  bpjs                  String?
+  jenisPegawaiId        String?
+  jenisPegawaiNama      String?
+  kedudukanHukumId      String?
+  kedudukanHukumNama    String?
+  statusCpnsPns         String?
+  kartuAsnVirtual       String?
+  nomorSkCpns           String?
+  tanggalSkCpns         String?
+  tmtCpns               String?
+  nomorSkPns            String?
+  tanggalSkPns          String?
+  tmtPns                String?
+  golAwalId             String?
+  golAwalNama           String?
+  golAkhirId            String?
+  golAkhirNama          String?
+  tmtGolongan           String?
+  mkTahun               String?
+  mkBulan               String?
+  jenisJabatanId        String?
+  jenisJabatanNama      String?
+  jabatanId             String?
+  jabatanNama           String?
+  tmtJabatan            String?
+  tingkatPendidikanId   String?
+  tingkatPendidikanNama String?
+  pendidikanId          String?
+  pendidikanNama        String?
+  tahunLulus            String?
+  kpknId                String?
+  kpknNama              String?
+  lokasiKerjaId         String?
+  lokasiKerjaNama       String?
+  unorId                String?
+  unorNama              String?
+  instansiIndukId       String?
+  instansiIndukNama     String?
+  instansiKerjaId       String?
+  instansiKerjaNama     String?
+  satuanKerjaIndukId    String?
+  satuanKerjaIndukNama  String?
+  satuanKerjaKerjaId    String?
+  satuanKerjaKerjaNama  String?
+  isValidNik            String?
+  namaSekolah           String?
+  flagIkd               String?
+  statusPensiun         String?              @default("AKTIF")
+  arsipSkPensiunId      String?
+  isDeleted             Boolean              @default(false)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  unorIndukId           String?
+  editedById            String?
+  arsipSkPensiun        ArsipSkPensiun?      @relation(fields: [arsipSkPensiunId], references: [id])
+  editedBy              User?                @relation("TaskEditor", fields: [editedById], references: [id])
+  unorInduk             RefUnor?             @relation(fields: [unorIndukId], references: [id])
+  riwayatKontrak        RiwayatKontrak[]
+  tasksPeremajaan       TaskPeremajaan[]
+  tasksUsulan           TaskUsulan[]
+  usulanPerpanjangan    UsulanPerpanjangan[]
+
+  @@index([arsipSkPensiunId], map: "data_p3k_arsipSkPensiunId_fkey")
+  @@index([editedById], map: "data_p3k_editedById_fkey")
+  @@index([unorIndukId], map: "data_p3k_unorIndukId_fkey")
+  @@map("data_p3k")
+}
+
+model ArsipKontrak {
+  id             String           @id @default(uuid())
+  namaFile       String?
+  fileUrl        String
+  isDeleted      Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  riwayatKontrak RiwayatKontrak[]
+
+  @@map("arsip_kontrak")
+}
+
+model RiwayatKontrak {
+  id             String        @id @default(uuid())
+  kontrakKe      Int
+  tanggalMulai   String
+  tanggalSelesai String
+  keterangan     String?
+  dataP3kId      String
+  arsipKontrakId String?
+  isDeleted      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  gajiPokok      Decimal?
+  golongan       String?
+  mkBulan        Int?
+  mkTahun        Int?
+  nomorKontrak   String?
+  arsipKontrak   ArsipKontrak? @relation(fields: [arsipKontrakId], references: [id])
+  dataP3k        DataP3k       @relation(fields: [dataP3kId], references: [id])
+
+  @@index([dataP3kId])
+  @@index([arsipKontrakId], map: "riwayat_kontrak_arsipKontrakId_fkey")
+  @@map("riwayat_kontrak")
+}
+
+model TemplateKontrak {
+  id                 String               @id @default(uuid())
+  nama               String
+  deskripsi          String?
+  fileUrl            String
+  namaFile           String?
+  isActive           Boolean              @default(true)
+  isDeleted          Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  usulanPerpanjangan UsulanPerpanjangan[]
+
+  @@map("template_kontrak")
+}
+
+model UsulanPerpanjangan {
+  id                String           @id @default(uuid())
+  tanggalMulai      String
+  tanggalSelesai    String
+  keterangan        String?
+  status            String           @default("PENDING")
+  alasanPenolakan   String?
+  generatedFileUrl  String?
+  dataP3kId         String
+  templateKontrakId String?
+  isDeleted         Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  nomorKontrak      String?
+  editedById        String?
+  tanggalTtd        String?
+  finalFileUrl      String?
+  kontrakKe         Int?
+  dataP3k           DataP3k          @relation(fields: [dataP3kId], references: [id])
+  editedBy          User?            @relation("UsulanEditor", fields: [editedById], references: [id])
+  templateKontrak   TemplateKontrak? @relation(fields: [templateKontrakId], references: [id])
+
+  @@index([dataP3kId])
+  @@index([status])
+  @@index([editedById], map: "usulan_perpanjangan_editedById_fkey")
+  @@index([templateKontrakId], map: "usulan_perpanjangan_templateKontrakId_fkey")
+  @@map("usulan_perpanjangan")
+}
+
+model TabelGaji {
+  id         String   @id @default(uuid())
+  golongan   String
+  mkTahun    Int
+  gaji       Int
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  aturanGaji String?
+
+  @@unique([golongan, mkTahun])
+  @@map("tabel_gaji")
+}
+
+model TaskUsulan {
+  id               String    @id @default(uuid()) @db.VarChar(36)
+  dataP3kId        String    @db.VarChar(36)
+  assignedToUserId String    @db.VarChar(36)
+  isCompleted      Boolean   @default(false)
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  isDeleted        Boolean   @default(false)
+  assignedToUser   User      @relation("UsulanAssignmentUser", fields: [assignedToUserId], references: [id])
+  dataP3k          DataP3k   @relation(fields: [dataP3kId], references: [id])
+
+  @@index([assignedToUserId])
+  @@index([dataP3kId])
+  @@map("task_usulan_pk")
+}
+
+model TaskPeremajaan {
+  id               String    @id @default(uuid()) @db.VarChar(36)
+  dataP3kId        String    @db.VarChar(36)
+  assignedToUserId String    @db.VarChar(36)
+  isCompleted      Boolean   @default(false)
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  isDeleted        Boolean   @default(false)
+  assignedToUser   User      @relation("PeremajaanAssignmentUser", fields: [assignedToUserId], references: [id])
+  dataP3k          DataP3k   @relation(fields: [dataP3kId], references: [id])
+
+  @@index([assignedToUserId])
+  @@index([dataP3kId])
+  @@map("task_peremajaan")
+}
+
+model TaskFieldConfig {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  fieldName String   @unique @db.VarChar(100)
+  label     String   @db.VarChar(150)
+  inputType String   @default("text") @db.VarChar(20)
+  groupName String?  @db.VarChar(50)
+  isActive  Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("task_field_configs")
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  action     String
+  entityType String
+  entityId   String
+  details    String?  @db.Text
+  userId     String
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation("UserActivities", fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("activity_logs")
+}
+
+model AppConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("app_configs")
+}
+
+model ActivityLogArchive {
+  id         String   @id @default(uuid())
+  action     String
+  entityType String
+  entityId   String
+  details    String?  @db.Text
+  userId     String
+  archivedAt DateTime @default(now())
+  createdAt  DateTime
+  updatedAt  DateTime
+  user       User     @relation("UserArchiveActivities", fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("activity_logs_archive")
+}
