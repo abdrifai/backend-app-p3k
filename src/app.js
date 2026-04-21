@@ -17,12 +17,23 @@ import { perpanjanganRoutes } from './modules/perpanjangan/perpanjangan.routes.j
 import gajiRoutes from './modules/gaji/gaji.routes.js';
 import taskFieldConfigRoutes from './modules/task-field-config/task-field-config.routes.js';
 import { activityLogRoutes } from './modules/activity-log/activityLog.routes.js';
+import { healthRoutes } from './modules/health/health.routes.js';
 
 // Initialize Express
 const app = express();
 
 // Global Middlewares
-app.use(helmet());
+//helmet asli
+//app.use(helmet());
+//helmet perubahan 
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Mematikan CSP agar script Swagger bisa jalan
+    crossOriginResourcePolicy: false,
+    crossOriginOpenerPolicy: false, // Menghilangkan error "untrustworthy origin" di log
+  })
+);
+
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   credentials: true
@@ -33,23 +44,30 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
 
+// Tambahkan konfigurasi ini
+const swaggerOptions = {
+    swaggerOptions: {
+        url: "/api-docs/swagger.json", // Pastikan path benar
+    },
+};
+
 // Swagger Documentation Route
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+//app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Ubah baris app.use Anda menjadi seperti ini:
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+        url: "/api-docs/swagger.json",
+    },
+    customSiteTitle: "App-P3K API Docs"
+}));
 
 // Base Route
 app.get('/', (req, res) => {
   res.redirect('/api-docs');
 });
-
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'App-P3K API is running.',
-    data: null,
-  });
-});
-
 // Import and use routes module here eventually
+app.use('/api/health', healthRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/v1/p3k-csv-import', p3kCsvImportRoutes);
 app.use('/api/v1/data-p3k', dataP3kRoutes);
