@@ -123,16 +123,18 @@ class UserService {
   }
 
   async getAllUsers({ page = 1, limit = 10, search = '' }) {
-    const skip = (page - 1) * limit;
-    const { data, total } = await userRepository.findAll({ skip, take: limit, search });
+    const isAll = limit === 'all';
+    const skip = isAll ? 0 : (page - 1) * limit;
+    const take = isAll ? 1000000 : limit;
+    const { data, total } = await userRepository.findAll({ skip, take, search });
 
     return {
       data,
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
+        page: isAll ? 1 : page,
+        limit: isAll ? total : limit,
+        totalPages: isAll ? 1 : Math.ceil(total / limit)
       }
     };
   }

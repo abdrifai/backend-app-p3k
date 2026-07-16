@@ -129,7 +129,13 @@ class TaskUsulanRepository {
         where,
         skip,
         take,
-        include: { dataP3k: true },
+        include: {
+          dataP3k: {
+            include: {
+              unorInduk: true
+            }
+          }
+        },
         orderBy: { updatedAt: 'desc' },
       }),
       prisma.taskUsulan.count({ where })

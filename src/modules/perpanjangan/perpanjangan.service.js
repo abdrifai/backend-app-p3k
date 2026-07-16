@@ -591,8 +591,8 @@ export class PerpanjanganService {
       }
     }
 
-    // Determine unit kerja name safely handling nested references
-    const unitKerjaNama = pegawai.unorInduk?.nama || pegawai.unorNama || '';
+    // Determine unit kerja name using unorNama from dataP3k
+    const unitKerjaNama = pegawai.unorNama || '';
 
     return {
       nipBaru: pegawai.nipBaru || '',

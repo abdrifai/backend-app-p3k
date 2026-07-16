@@ -137,7 +137,8 @@ class UserController {
    *       - in: query
    *         name: limit
    *         schema:
-   *           type: integer
+   *           type: string
+   *           description: Number of users to return, or 'all' to return all users
    *       - in: query
    *         name: search
    *         schema:
@@ -150,7 +151,7 @@ class UserController {
     const { page = 1, limit = 10, search = '' } = req.query;
     const result = await userService.getAllUsers({
       page: parseInt(page),
-      limit: parseInt(limit),
+      limit: limit === 'all' ? 'all' : parseInt(limit),
       search
     });
 
