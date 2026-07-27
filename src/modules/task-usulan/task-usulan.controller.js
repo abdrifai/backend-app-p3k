@@ -128,6 +128,45 @@ class TaskUsulanController {
       data: result
     });
   });
+
+  /**
+   * @swagger
+   * /api/tasks-usulan/search-assigned:
+   *   get:
+   *     tags: [TasksUsulan]
+   *     summary: Search all assigned tasks (Task Usulan)
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Berhasil mencari tugas usulan terbagi
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Server error
+   */
+  searchAssignedTasks = asyncHandler(async (req, res) => {
+    const result = await taskUsulanService.searchAssignedTasks(req.query);
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mencari tugas usulan terbagi',
+      ...result
+    });
+  });
 }
 
 export default new TaskUsulanController();

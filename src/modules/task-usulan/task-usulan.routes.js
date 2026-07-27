@@ -15,6 +15,7 @@ router.get('/report', taskUsulanController.getReport);
 
 // ====== ADMIN ROUTES ======
 router.use(authorize('admin'));
+router.get('/search-assigned', taskUsulanController.searchAssignedTasks);
 router.post('/assign/auto', taskUsulanController.autoAssign);
 router.post('/assign/manual', taskUsulanController.manualAssign);
 router.post('/reset-all', taskUsulanController.resetAllTasks);

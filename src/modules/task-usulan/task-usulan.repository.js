@@ -339,6 +339,54 @@ class TaskUsulanRepository {
       where: { dataP3kId: dataP3kId }
     });
   }
+
+  /**
+   * Search all assigned tasks (TaskUsulan) with pagination and filter
+   */
+  async searchAssignedTasks({ skip = 0, take = 10, search = '' }) {
+    const where = {
+      isDeleted: false,
+      ...(search ? {
+        dataP3k: {
+          OR: [
+            { nama: { contains: search } },
+            { nipBaru: { contains: search } }
+          ]
+        }
+      } : {})
+    };
+
+    const [data, total] = await Promise.all([
+      prisma.taskUsulan.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          dataP3k: {
+            select: {
+              id: true,
+              nama: true,
+              nipBaru: true,
+              gelarDepan: true,
+              gelarBelakang: true
+            }
+          },
+          assignedToUser: {
+            select: {
+              id: true,
+              username: true,
+              namaLengkap: true,
+              role: true
+            }
+          }
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.taskUsulan.count({ where })
+    ]);
+
+    return { data, total };
+  }
 }
 
 export default new TaskUsulanRepository();

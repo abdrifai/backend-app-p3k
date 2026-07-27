@@ -88,6 +88,26 @@ class TaskUsulanService {
       totalRevoked
     };
   }
+
+  async searchAssignedTasks(query) {
+    const page = parseInt(query.page) || 1;
+    const limit = parseInt(query.limit) || 10;
+    const search = query.search || '';
+
+    const skip = (page - 1) * limit;
+
+    const { data, total } = await taskUsulanRepository.searchAssignedTasks({ skip, take: limit, search });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
 }
 
 export default new TaskUsulanService();
