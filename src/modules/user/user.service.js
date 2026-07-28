@@ -5,10 +5,18 @@ import userRepository from './user.repository.js';
 import { sendPasswordResetEmail } from '../../utils/email.service.js';
 class UserService {
   async register(data) {
-    // Check if user exists
+    // Check if email exists
     const existingUser = await userRepository.findByEmail(data.email);
     if (existingUser) {
       const error = new Error('Email is already registered');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Check if username exists
+    const existingUsername = await userRepository.findByUsername(data.username);
+    if (existingUsername) {
+      const error = new Error('Username is already registered');
       error.statusCode = 400;
       throw error;
     }
@@ -18,10 +26,19 @@ class UserService {
     const hashedPassword = await bcrypt.hash(data.password, salt);
 
     // Create user
-    return await userRepository.create({
-      ...data,
-      password: hashedPassword
-    });
+    try {
+      return await userRepository.create({
+        ...data,
+        password: hashedPassword
+      });
+    } catch (err) {
+      if (err.code === 'P2002') {
+        const error = new Error('Username or email is already registered');
+        error.statusCode = 400;
+        throw error;
+      }
+      throw err;
+    }
   }
 
   async login(username, password) {
@@ -157,7 +174,16 @@ class UserService {
       updateData.password = await bcrypt.hash(payload.password, salt);
     }
 
-    return await userRepository.update(id, updateData);
+    try {
+      return await userRepository.update(id, updateData);
+    } catch (err) {
+      if (err.code === 'P2002') {
+        const error = new Error('Email or username is already registered');
+        error.statusCode = 400;
+        throw error;
+      }
+      throw err;
+    }
   }
 
   async deleteUser(id) {
@@ -191,7 +217,16 @@ class UserService {
       updateData.foto = `/uploads/user-photo/${file.filename}`;
     }
 
-    return await userRepository.update(id, updateData);
+    try {
+      return await userRepository.update(id, updateData);
+    } catch (err) {
+      if (err.code === 'P2002') {
+        const error = new Error('Email is already registered');
+        error.statusCode = 400;
+        throw error;
+      }
+      throw err;
+    }
   }
 }
 
