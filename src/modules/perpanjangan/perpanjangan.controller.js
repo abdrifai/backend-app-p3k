@@ -118,8 +118,8 @@ export class PerpanjanganController {
    *         description: Berhasil
    */
   static getAllUsulan = asyncHandler(async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = req.query.page === 'all' ? 1 : (parseInt(req.query.page) || 1);
+    const limit = req.query.limit === 'all' ? 'all' : (parseInt(req.query.limit) || 10);
     const status = req.query.status || '';
     const search = req.query.search || '';
 

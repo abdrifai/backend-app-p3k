@@ -30,8 +30,12 @@ export class PerpanjanganService {
 
   // --- Usulan ---
   static async getAllUsulan({ page = 1, limit = 10, status = '', search = '', userId, isAdmin }) {
-    const skip = (page - 1) * limit;
-    const { data, total } = await PerpanjanganRepository.findAllUsulan({ skip, take: limit, status, search, userId, isAdmin });
+    const isAll = limit === 'all';
+    const parsedPage = isAll ? 1 : (parseInt(page) || 1);
+    const parsedLimit = isAll ? 1000000 : (parseInt(limit) || 10);
+    const skip = isAll ? 0 : (parsedPage - 1) * parsedLimit;
+
+    const { data, total } = await PerpanjanganRepository.findAllUsulan({ skip, take: parsedLimit, status, search, userId, isAdmin });
     
     // Map with additional calculated data (gaji, etc)
     const mappedData = await Promise.all(data.map(async (u) => {
@@ -44,7 +48,12 @@ export class PerpanjanganService {
 
     return {
       data: mappedData,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) }
+      meta: { 
+        total, 
+        page: isAll ? 1 : parsedPage, 
+        limit: isAll ? total : parsedLimit, 
+        totalPages: isAll ? 1 : Math.ceil(total / parsedLimit) 
+      }
     };
   }
 
