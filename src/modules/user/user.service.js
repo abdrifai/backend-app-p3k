@@ -59,9 +59,11 @@ class UserService {
 
   async reactivateUser(id, payload) {
     const updateData = { ...payload };
-    if (payload.password) {
+    if (payload.password && payload.password.trim() !== '') {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(payload.password, salt);
+    } else {
+      delete updateData.password;
     }
 
     return await userRepository.reactivateUser(id, updateData);
@@ -220,6 +222,23 @@ class UserService {
       throw error;
     }
     return await userRepository.softDelete(id);
+  }
+
+  async permanentDeleteUser(id, securityKey) {
+    if (securityKey !== '234') {
+      const error = new Error('Kunci keamanan tidak valid. Masukkan kunci keamanan yang benar ("234").');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const user = await userRepository.findByIdIncludeDeleted(id);
+    if (!user) {
+      const error = new Error('User tidak ditemukan');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return await userRepository.hardDelete(id);
   }
 
   async updateProfile(id, payload, file) {

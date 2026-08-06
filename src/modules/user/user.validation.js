@@ -1,10 +1,10 @@
 import Joi from 'joi';
 
 export const createUserSchema = Joi.object({
-  username: Joi.string().min(3).max(30).required(),
+  username: Joi.string().min(3).max(50).required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
-  namaLengkap: Joi.string().max(100).required(),
+  namaLengkap: Joi.string().max(150).allow('', null).default(''),
   role: Joi.string().valid('admin', 'user').default('user')
 });
 

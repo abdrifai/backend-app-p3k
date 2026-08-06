@@ -242,6 +242,19 @@ class UserController {
     });
   });
 
+  permanentDelete = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const securityKey = req.body?.securityKey || req.query?.securityKey;
+
+    await userService.permanentDeleteUser(id, securityKey);
+
+    res.status(200).json({
+      success: true,
+      message: 'User berhasil dihapus secara permanen',
+      data: null
+    });
+  });
+
   getProfile = asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const user = await userService.getUserById(userId);

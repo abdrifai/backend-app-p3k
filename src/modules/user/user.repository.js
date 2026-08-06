@@ -218,6 +218,50 @@ class UserRepository {
     });
   }
 
+  async findByIdIncludeDeleted(id) {
+    return await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        namaLengkap: true,
+        role: true
+      }
+    });
+  }
+
+  async hardDelete(id) {
+    return await prisma.$transaction(async (tx) => {
+      // Unlink references to prevent FK constraint errors
+      await tx.dataP3k.updateMany({
+        where: { editedById: id },
+        data: { editedById: null }
+      });
+      await tx.usulanPerpanjangan.updateMany({
+        where: { editedById: id },
+        data: { editedById: null }
+      });
+      await tx.taskPeremajaan.deleteMany({
+        where: { assignedToUserId: id }
+      });
+      await tx.taskUsulan.deleteMany({
+        where: { assignedToUserId: id }
+      });
+      await tx.activityLog.deleteMany({
+        where: { userId: id }
+      });
+      await tx.activityLogArchive.deleteMany({
+        where: { userId: id }
+      });
+
+      // Hard delete user permanently
+      return await tx.user.delete({
+        where: { id }
+      });
+    });
+  }
+
   async createPasswordResetToken(email, token, expiresAt) {
     return await prisma.passwordResetToken.create({
       data: { email, token, expiresAt }
