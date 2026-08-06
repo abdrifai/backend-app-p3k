@@ -290,7 +290,13 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
           tanggalSelesai: true,
           updatedAt: true,
           dataP3k: {
-            select: { id: true, nipBaru: true, nama: true, unorNama: true }
+            select: {
+              id: true,
+              nipBaru: true,
+              nama: true,
+              unorNama: true,
+              unorInduk: { select: { nama: true } }
+            }
           },
           editedBy: {
             select: { id: true, username: true, namaLengkap: true }

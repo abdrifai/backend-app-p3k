@@ -738,7 +738,8 @@ export class PerpanjanganService {
     const unorMap = new Map();
 
     raw.dataP3kWithUsulan.forEach((pegawai) => {
-      const unorKey = pegawai.unorNama || (pegawai.unorInduk ? pegawai.unorInduk.nama : 'Lainnya / Belum Set');
+      // Group strictly by Unor Induk (blank if not set)
+      const unorKey = (pegawai.unorInduk && pegawai.unorInduk.nama) ? pegawai.unorInduk.nama : '';
 
       if (!unorMap.has(unorKey)) {
         unorMap.set(unorKey, {
