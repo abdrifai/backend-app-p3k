@@ -7,6 +7,7 @@ import { DataP3kRepository } from '../data-p3k/data-p3k.repository.js';
 import { KontrakRepository } from '../kontrak/kontrak.repository.js';
 import { GajiService } from '../gaji/gaji.service.js';
 import TaskUsulanRepository from '../task-usulan/task-usulan.repository.js';
+import activityLogService from '../activity-log/activityLog.service.js';
 
 export class PerpanjanganService {
   // --- Template ---
@@ -288,7 +289,7 @@ export class PerpanjanganService {
     });
   }
 
-  static async deleteUsulan(id) {
+  static async deleteUsulan(id, userId) {
     const usulan = await PerpanjanganRepository.findUsulanById(id);
     if (!usulan || usulan.isDeleted) {
       const error = new Error('Usulan tidak ditemukan');
@@ -299,10 +300,21 @@ export class PerpanjanganService {
     // Delete associated task to allow redistribution
     await TaskUsulanRepository.deleteTaskByDataP3kId(usulan.dataP3kId);
 
-    return PerpanjanganRepository.deleteUsulan(id);
+    const deleted = await PerpanjanganRepository.deleteUsulan(id);
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'DELETE_USULAN', 'UsulanPerpanjangan', id, {
+        nipBaru: usulan.dataP3k?.nipBaru,
+        namaPegawai: usulan.dataP3k?.nama,
+        nomorKontrak: usulan.nomorKontrak,
+        status: usulan.status
+      });
+    }
+
+    return deleted;
   }
 
-  static async deleteApprovedUsulan(id) {
+  static async deleteApprovedUsulan(id, userId) {
     const usulan = await PerpanjanganRepository.findUsulanById(id);
     if (!usulan || usulan.isDeleted) {
       const error = new Error('Usulan tidak ditemukan');
@@ -350,7 +362,18 @@ export class PerpanjanganService {
     // Delete associated task to allow redistribution
     await TaskUsulanRepository.deleteTaskByDataP3kId(usulan.dataP3kId);
 
-    return PerpanjanganRepository.deleteUsulan(id);
+    const deleted = await PerpanjanganRepository.deleteUsulan(id);
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'DELETE_APPROVED_USULAN', 'UsulanPerpanjangan', id, {
+        nipBaru: usulan.dataP3k?.nipBaru,
+        namaPegawai: usulan.dataP3k?.nama,
+        nomorKontrak: usulan.nomorKontrak,
+        status: usulan.status
+      });
+    }
+
+    return deleted;
   }
 
   static _formatTanggal(dateString) {
@@ -674,4 +697,129 @@ export class PerpanjanganService {
     
     return { nomorKontrak, nextSeq, type, year };
   }
+
+  static async getDashboardStats() {
+    const raw = await PerpanjanganRepository.getDashboardStats();
+
+    // Map Status counts
+    const statusMap = {
+      PENDING: 0,
+      APPROVED: 0,
+      UPLOAD_SRIKANDI: 0,
+      SELESAI: 0,
+      REJECTED: 0
+    };
+
+    raw.statusGroups.forEach((g) => {
+      if (statusMap[g.status] !== undefined) {
+        statusMap[g.status] = g._count._all;
+      }
+    });
+
+    const pendingCount = statusMap.PENDING;
+    const approvedCount = statusMap.APPROVED;
+    const srikandiCount = statusMap.UPLOAD_SRIKANDI;
+    const selesaiCount = statusMap.SELESAI;
+    const rejectedCount = statusMap.REJECTED;
+
+    const totalPegawaiAktif = raw.totalPegawaiAktif || 0;
+    const totalPegawaiDenganUsulan = raw.totalPegawaiDenganUsulan || 0;
+    const totalPegawaiBelumUsulan = Math.max(0, totalPegawaiAktif - totalPegawaiDenganUsulan);
+
+    const completionPercentage = totalPegawaiAktif > 0 
+      ? Number(((selesaiCount / totalPegawaiAktif) * 100).toFixed(1)) 
+      : 0;
+
+    const usulanPercentage = totalPegawaiAktif > 0
+      ? Number(((totalPegawaiDenganUsulan / totalPegawaiAktif) * 100).toFixed(1))
+      : 0;
+
+    // Grouping by Unit Kerja (Unor)
+    const unorMap = new Map();
+
+    raw.dataP3kWithUsulan.forEach((pegawai) => {
+      const unorKey = pegawai.unorNama || (pegawai.unorInduk ? pegawai.unorInduk.nama : 'Lainnya / Belum Set');
+
+      if (!unorMap.has(unorKey)) {
+        unorMap.set(unorKey, {
+          unorNama: unorKey,
+          totalPegawai: 0,
+          totalUsulan: 0,
+          selesai: 0,
+          srikandi: 0,
+          approved: 0,
+          pending: 0,
+          rejected: 0,
+          belumUsulan: 0,
+          progressPercentage: 0
+        });
+      }
+
+      const item = unorMap.get(unorKey);
+      item.totalPegawai += 1;
+
+      if (pegawai.usulanPerpanjangan && pegawai.usulanPerpanjangan.length > 0) {
+        item.totalUsulan += pegawai.usulanPerpanjangan.length;
+        
+        pegawai.usulanPerpanjangan.forEach((u) => {
+          if (u.status === 'SELESAI') item.selesai += 1;
+          else if (u.status === 'UPLOAD_SRIKANDI') item.srikandi += 1;
+          else if (u.status === 'APPROVED') item.approved += 1;
+          else if (u.status === 'PENDING') item.pending += 1;
+          else if (u.status === 'REJECTED') item.rejected += 1;
+        });
+      } else {
+        item.belumUsulan += 1;
+      }
+    });
+
+    const byUnor = Array.from(unorMap.values()).map((u) => {
+      const pct = u.totalPegawai > 0 ? (u.selesai / u.totalPegawai) * 100 : 0;
+      return {
+        ...u,
+        progressPercentage: Number(pct.toFixed(1))
+      };
+    }).sort((a, b) => b.totalPegawai - a.totalPegawai);
+
+    // Operator Task Performance
+    const byOperator = raw.usersWithTasks.map((usr) => {
+      const assignedTasks = (usr.usulanTasks || []).length;
+      const completedTasks = (usr.usulanTasks || []).filter(t => t.isCompleted).length;
+      const createdUsulan = usr.usulanEditedTasks.length;
+      const selesaiUsulan = usr.usulanEditedTasks.filter(u => u.status === 'SELESAI').length;
+      const completionRate = assignedTasks > 0 ? (completedTasks / assignedTasks) * 100 : 0;
+
+      return {
+        id: usr.id,
+        username: usr.username,
+        namaLengkap: usr.namaLengkap || usr.username,
+        role: usr.role,
+        assignedTasks,
+        completedTasks,
+        createdUsulan,
+        selesaiUsulan,
+        completionRate: Number(completionRate.toFixed(1))
+      };
+    });
+
+    return {
+      summary: {
+        totalPegawaiAktif,
+        totalUsulan: raw.totalUsulan,
+        totalPegawaiDenganUsulan,
+        totalPegawaiBelumUsulan,
+        pendingCount,
+        approvedCount,
+        srikandiCount,
+        selesaiCount,
+        rejectedCount,
+        completionPercentage,
+        usulanPercentage
+      },
+      byUnor,
+      byOperator,
+      recentUsulan: raw.recentUsulan
+    };
+  }
 }
+

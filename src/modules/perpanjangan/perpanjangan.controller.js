@@ -338,7 +338,7 @@ export class PerpanjanganController {
    *         description: Usulan berhasil dihapus
    */
   static deleteUsulan = asyncHandler(async (req, res) => {
-    await PerpanjanganService.deleteUsulan(req.params.id);
+    await PerpanjanganService.deleteUsulan(req.params.id, req.user?.id);
     res.status(200).json({ success: true, message: 'Usulan berhasil dihapus.', data: null });
   });
 
@@ -358,7 +358,7 @@ export class PerpanjanganController {
    *         description: Usulan disetujui berhasil dihapus beserta filenya
    */
   static deleteApprovedUsulan = asyncHandler(async (req, res) => {
-    await PerpanjanganService.deleteApprovedUsulan(req.params.id);
+    await PerpanjanganService.deleteApprovedUsulan(req.params.id, req.user?.id);
     res.status(200).json({ success: true, message: 'Usulan disetujui beserta dokumen kontraknya berhasil dihapus.', data: null });
   });
 
@@ -449,4 +449,24 @@ export class PerpanjanganController {
       data: result
     });
   });
+
+  /**
+   * @swagger
+   * /api/v1/perpanjangan/dashboard-stats:
+   *   get:
+   *     tags: [Perpanjangan Kontrak]
+   *     summary: Ambil statistik dan progres usulan perpanjangan PK untuk dashboard Admin
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil statistik progres usulan perpanjangan PK
+   */
+  static getDashboardStats = asyncHandler(async (req, res) => {
+    const data = await PerpanjanganService.getDashboardStats();
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil statistik progres usulan perpanjangan PK',
+      data
+    });
+  });
 }
+

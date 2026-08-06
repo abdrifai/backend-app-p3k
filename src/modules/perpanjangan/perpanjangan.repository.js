@@ -216,4 +216,98 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
 
     return !!(usulan || riwayat);
   }
+
+  static async getDashboardStats() {
+    const [
+      totalPegawaiAktif,
+      totalUsulan,
+      statusGroups,
+      distinctDataP3kUsulan,
+      dataP3kWithUsulan,
+      usersWithTasks,
+      recentUsulan
+    ] = await Promise.all([
+      prisma.dataP3k.count({
+        where: { statusPensiun: 'AKTIF', isDeleted: false }
+      }),
+      prisma.usulanPerpanjangan.count({
+        where: { isDeleted: false }
+      }),
+      prisma.usulanPerpanjangan.groupBy({
+        by: ['status'],
+        where: { isDeleted: false },
+        _count: { _all: true }
+      }),
+      prisma.usulanPerpanjangan.findMany({
+        where: { isDeleted: false },
+        distinct: ['dataP3kId'],
+        select: { dataP3kId: true }
+      }),
+      prisma.dataP3k.findMany({
+        where: { statusPensiun: 'AKTIF', isDeleted: false },
+        select: {
+          id: true,
+          nipBaru: true,
+          nama: true,
+          unorNama: true,
+          unorInduk: { select: { nama: true } },
+          usulanPerpanjangan: {
+            where: { isDeleted: false },
+            select: { id: true, status: true, updatedAt: true }
+          }
+        }
+      }),
+      prisma.user.findMany({
+        where: { isDeleted: false },
+        select: {
+          id: true,
+          username: true,
+          namaLengkap: true,
+          role: true,
+          tasks: {
+            where: { isDeleted: false },
+            select: { isCompleted: true }
+          },
+          usulanTasks: {
+            where: { isDeleted: false },
+            select: { isCompleted: true }
+          },
+          usulanEditedTasks: {
+            where: { isDeleted: false },
+            select: { id: true, status: true }
+          }
+        }
+      }),
+      prisma.usulanPerpanjangan.findMany({
+        where: { isDeleted: false },
+        take: 500,
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          nomorKontrak: true,
+          tanggalMulai: true,
+          tanggalSelesai: true,
+          updatedAt: true,
+          dataP3k: {
+            select: { id: true, nipBaru: true, nama: true, unorNama: true }
+          },
+          editedBy: {
+            select: { id: true, username: true, namaLengkap: true }
+          }
+        }
+      })
+    ]);
+
+    return {
+      totalPegawaiAktif,
+      totalUsulan,
+      statusGroups,
+      totalPegawaiDenganUsulan: distinctDataP3kUsulan.length,
+      dataP3kWithUsulan,
+      usersWithTasks,
+      recentUsulan
+    };
+  }
 }
+

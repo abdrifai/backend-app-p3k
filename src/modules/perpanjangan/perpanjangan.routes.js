@@ -21,5 +21,6 @@ router.post('/usulan/:id/upload-final', authenticate, uploadUsulanFinal.single('
 router.delete('/usulan/:id', PerpanjanganController.deleteUsulan);
 router.delete('/usulan/:id/approved', authenticate, authorize('admin', 'ADMIN', 'Admin'), PerpanjanganController.deleteApprovedUsulan);
 router.get('/next-contract-number/:nipBaru', authenticate, PerpanjanganController.getNextContractNumber);
+router.get('/dashboard-stats', authenticate, PerpanjanganController.getDashboardStats);
 
 export const perpanjanganRoutes = router;
