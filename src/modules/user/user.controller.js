@@ -16,11 +16,31 @@ class UserController {
     }
 
     // Call service layer
-    const user = await userService.register(value);
+    const result = await userService.register(value);
+
+    if (result && result.isSoftDeleted) {
+      return res.status(200).json({
+        success: false,
+        isSoftDeleted: true,
+        message: result.message,
+        data: result.existingUser
+      });
+    }
 
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
+      data: result
+    });
+  });
+
+  reactivate = asyncHandler(async (req, res) => {
+    const userId = req.params.id;
+    const user = await userService.reactivateUser(userId, req.body);
+
+    res.status(200).json({
+      success: true,
+      message: 'User berhasil diaktifkan kembali',
       data: user
     });
   });
@@ -148,11 +168,12 @@ class UserController {
    *         description: Berhasil mengambil data user
    */
   getAll = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, search = '' } = req.query;
+    const { page = 1, limit = 10, search = '', status = 'active' } = req.query;
     const result = await userService.getAllUsers({
       page: parseInt(page),
       limit: limit === 'all' ? 'all' : parseInt(limit),
-      search
+      search,
+      status
     });
 
     res.status(200).json({

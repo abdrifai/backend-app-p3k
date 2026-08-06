@@ -5,7 +5,7 @@ import userRepository from './user.repository.js';
 import { sendPasswordResetEmail } from '../../utils/email.service.js';
 class UserService {
   async register(data) {
-    // Check if email exists
+    // Check if ACTIVE email exists
     const existingUser = await userRepository.findByEmail(data.email);
     if (existingUser) {
       const error = new Error('Email is already registered');
@@ -13,12 +13,28 @@ class UserService {
       throw error;
     }
 
-    // Check if username exists
+    // Check if ACTIVE username exists
     const existingUsername = await userRepository.findByUsername(data.username);
     if (existingUsername) {
       const error = new Error('Username is already registered');
       error.statusCode = 400;
       throw error;
+    }
+
+    // Check if SOFT-DELETED user exists with this username or email
+    const softDeleted = await userRepository.findSoftDeletedUser(data.username, data.email);
+    if (softDeleted) {
+      return {
+        isSoftDeleted: true,
+        message: `User '${data.username}' sebelumnya pernah terdaftar dan berstatus Non-Aktif (dihapus). Apakah Anda ingin mengaktifkan kembali akun ini?`,
+        existingUser: {
+          id: softDeleted.id,
+          username: data.username,
+          email: data.email,
+          namaLengkap: softDeleted.namaLengkap || data.namaLengkap,
+          role: softDeleted.role || data.role
+        }
+      };
     }
 
     // Hash password
@@ -39,6 +55,16 @@ class UserService {
       }
       throw err;
     }
+  }
+
+  async reactivateUser(id, payload) {
+    const updateData = { ...payload };
+    if (payload.password) {
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(payload.password, salt);
+    }
+
+    return await userRepository.reactivateUser(id, updateData);
   }
 
   async login(username, password) {
@@ -139,11 +165,11 @@ class UserService {
     return user;
   }
 
-  async getAllUsers({ page = 1, limit = 10, search = '' }) {
+  async getAllUsers({ page = 1, limit = 10, search = '', status = 'active' }) {
     const isAll = limit === 'all';
     const skip = isAll ? 0 : (page - 1) * limit;
     const take = isAll ? 1000000 : limit;
-    const { data, total } = await userRepository.findAll({ skip, take, search });
+    const { data, total } = await userRepository.findAll({ skip, take, search, status });
 
     return {
       data,

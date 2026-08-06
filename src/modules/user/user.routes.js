@@ -85,6 +85,7 @@ router.put('/profile', authenticate, uploadUserPhoto.single('foto'), userControl
 
 // Admin-only user management routes
 router.get('/', authenticate, authorize('admin'), userController.getAll);
+router.post('/:id/reactivate', authenticate, authorize('admin'), userController.reactivate);
 router.put('/:id', authenticate, authorize('admin'), userController.update);
 router.delete('/:id', authenticate, authorize('admin'), userController.remove);
 
