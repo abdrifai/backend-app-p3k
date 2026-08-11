@@ -2,7 +2,8 @@ import Joi from 'joi';
 
 export const autoAssignSchema = Joi.object({
   userIds: Joi.array().items(Joi.string().uuid()).min(1).required(),
-  amountPerUser: Joi.number().integer().min(1).required()
+  amountPerUser: Joi.number().integer().min(1).required(),
+  kegiatan: Joi.string().optional().default('Umum')
 });
 
 export const manualAssignSchema = Joi.object({
@@ -11,7 +12,8 @@ export const manualAssignSchema = Joi.object({
       userId: Joi.string().uuid().required(),
       amount: Joi.number().integer().min(1).required()
     })
-  ).min(1).required()
+  ).min(1).required(),
+  kegiatan: Joi.string().optional().default('Umum')
 });
 
 export const completeTaskSchema = Joi.object({

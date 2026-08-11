@@ -51,6 +51,10 @@ class ActivityLogService {
     return activityLogRepository.getLogs(page, limit, filters);
   }
 
+  async getEmployeeByNip(nip) {
+    return activityLogRepository.getEmployeeByNip(nip);
+  }
+
   async archiveLogsByDays(daysOlder) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOlder);

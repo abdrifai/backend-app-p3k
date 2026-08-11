@@ -87,7 +87,8 @@ class TaskController {
     });
   });
   getUnassignedCount = asyncHandler(async (req, res) => {
-    const result = await taskService.getUnassignedCount();
+    const kegiatan = req.query.kegiatan || '';
+    const result = await taskService.getUnassignedCount(kegiatan);
 
     res.status(200).json({
       success: true,

@@ -11,12 +11,14 @@ import { p3kCsvImportRoutes } from './modules/p3k-csv-import/p3k-csv-import.rout
 import { dataP3kRoutes } from './modules/data-p3k/data-p3k.routes.js';
 import { refUnorRoutes } from './modules/ref-unor/ref-unor.routes.js';
 import taskRoutes from './modules/task/task.routes.js';
+import kegiatanRoutes from './modules/kegiatan/kegiatan.routes.js';
 import taskUsulanRoutes from './modules/task-usulan/task-usulan.routes.js';
 import { kontrakRoutes } from './modules/kontrak/kontrak.routes.js';
 import { perpanjanganRoutes } from './modules/perpanjangan/perpanjangan.routes.js';
 import gajiRoutes from './modules/gaji/gaji.routes.js';
 import taskFieldConfigRoutes from './modules/task-field-config/task-field-config.routes.js';
 import { activityLogRoutes } from './modules/activity-log/activityLog.routes.js';
+import backupRoutes from './modules/backup/backup.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import path from 'path';
 
@@ -74,12 +76,14 @@ app.use('/api/v1/p3k-csv-import', p3kCsvImportRoutes);
 app.use('/api/v1/data-p3k', dataP3kRoutes);
 app.use('/api/v1/ref-unor', refUnorRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/kegiatan', kegiatanRoutes);
 app.use('/api/tasks-usulan', taskUsulanRoutes);
 app.use('/api/v1/kontrak', kontrakRoutes);
 app.use('/api/v1/perpanjangan', perpanjanganRoutes);
 app.use('/api/v1/gaji', gajiRoutes);
 app.use('/api/task-field-configs', taskFieldConfigRoutes);
 app.use('/api/v1/activity-logs', activityLogRoutes);
+app.use('/api/backup', backupRoutes);
 
 // 404 Handler
 app.use(notFoundHandler);

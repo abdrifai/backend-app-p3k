@@ -4,18 +4,18 @@ class TaskRepository {
   /**
    * Assign tasks evenly (or randomly grabbed) to a list of users
    */
-  async autoAssignTasks(userIds, amountPerUser) {
+  async autoAssignTasks(userIds, amountPerUser, kegiatan = 'Umum') {
     let totalAssigned = 0;
 
     for (const userId of userIds) {
-      // Find assigned P3Ks to exclude them
+      // Find assigned P3Ks for this specific kegiatan to exclude them
       const assignedRecords = await prisma.taskPeremajaan.findMany({
-        where: { isDeleted: false },
+        where: { isDeleted: false, kegiatan: kegiatan },
         select: { dataP3kId: true }
       });
       const assignedIds = assignedRecords.map(r => r.dataP3kId);
 
-      // Find DataP3k that are AKTIF and not assigned
+      // Find DataP3k that are AKTIF and not assigned to this kegiatan
       const unassignedData = await prisma.dataP3k.findMany({
         where: { 
           id: { notIn: assignedIds }, 
@@ -31,7 +31,8 @@ class TaskRepository {
       const newTasks = unassignedData.map(d => ({
         dataP3kId: d.id,
         assignedToUserId: userId,
-        isCompleted: false
+        isCompleted: false,
+        kegiatan: kegiatan
       }));
 
       const { count } = await prisma.taskPeremajaan.createMany({
@@ -47,14 +48,14 @@ class TaskRepository {
   /**
    * Manual assignment based on an array of objects
    */
-  async manualAssignTasks(assignments) {
+  async manualAssignTasks(assignments, kegiatan = 'Umum') {
     let totalAssigned = 0;
 
     for (const { userId, amount } of assignments) {
       if (amount <= 0) continue;
 
       const assignedRecords = await prisma.taskPeremajaan.findMany({
-        where: { isDeleted: false },
+        where: { isDeleted: false, kegiatan: kegiatan },
         select: { dataP3kId: true }
       });
       const assignedIds = assignedRecords.map(r => r.dataP3kId);
@@ -74,7 +75,8 @@ class TaskRepository {
       const newTasks = unassignedData.map(d => ({
         dataP3kId: d.id,
         assignedToUserId: userId,
-        isCompleted: false
+        isCompleted: false,
+        kegiatan: kegiatan
       }));
 
       const { count } = await prisma.taskPeremajaan.createMany({
@@ -219,10 +221,20 @@ class TaskRepository {
 
   /**
    * Get unassigned data count
+   * - If kegiatan is provided: count AKTIF employees not yet assigned to that kegiatan
+   * - If no kegiatan: count ALL AKTIF employees (total pool size)
    */
-  async getUnassignedCount() {
+  async getUnassignedCount(kegiatan = '') {
+    // No kegiatan selected → show total pool of active employees
+    if (!kegiatan) {
+      return await prisma.dataP3k.count({
+        where: { statusPensiun: 'AKTIF', isDeleted: false }
+      });
+    }
+
+    // Specific kegiatan → exclude employees already assigned to this kegiatan
     const assignedRecords = await prisma.taskPeremajaan.findMany({
-      where: { isDeleted: false },
+      where: { isDeleted: false, kegiatan: kegiatan },
       select: { dataP3kId: true }
     });
     const assignedIds = assignedRecords.map(r => r.dataP3kId);
@@ -235,6 +247,7 @@ class TaskRepository {
       }
     });
   }
+
 
   /**
    * Reset assignments for specific users (unassign unfinished tasks by removing them)

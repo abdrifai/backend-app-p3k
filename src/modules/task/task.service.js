@@ -2,28 +2,28 @@ import taskRepository from './task.repository.js';
 import activityLogService from '../activity-log/activityLog.service.js';
 
 class TaskService {
-  async autoAssign(userIds, amountPerUser) {
+  async autoAssign(userIds, amountPerUser, kegiatan = 'Umum') {
     if (!userIds || userIds.length === 0 || amountPerUser <= 0) {
       const error = new Error('Invalid assignment parameters');
       error.statusCode = 400;
       throw error;
     }
 
-    const totalAssigned = await taskRepository.autoAssignTasks(userIds, amountPerUser);
+    const totalAssigned = await taskRepository.autoAssignTasks(userIds, amountPerUser, kegiatan);
     return {
       message: `Berhasil membagikan ${totalAssigned} data kepada ${userIds.length} user secara otomatis.`,
       totalAssigned
     };
   }
 
-  async manualAssign(assignments) {
+  async manualAssign(assignments, kegiatan = 'Umum') {
     if (!assignments || assignments.length === 0) {
       const error = new Error('Invalid assignment data');
       error.statusCode = 400;
       throw error;
     }
 
-    const totalAssigned = await taskRepository.manualAssignTasks(assignments);
+    const totalAssigned = await taskRepository.manualAssignTasks(assignments, kegiatan);
     return {
       message: `Berhasil membagikan total ${totalAssigned} data secara manual.`,
       totalAssigned
@@ -34,10 +34,11 @@ class TaskService {
     const page = parseInt(query.page) || 1;
     const limit = parseInt(query.limit) || 10;
     const search = query.search || '';
+    const kegiatan = query.kegiatan || '';
     
     const skip = (page - 1) * limit;
 
-    const { data, total } = await taskRepository.getTasksByUser(userId, { skip, take: limit, search });
+    const { data, total } = await taskRepository.getTasksByUser(userId, { skip, take: limit, search, kegiatan });
 
     return {
       data,
@@ -79,8 +80,8 @@ class TaskService {
     return await taskRepository.getTaskReport();
   }
 
-  async getUnassignedCount() {
-    const total = await taskRepository.getUnassignedCount();
+  async getUnassignedCount(kegiatan = '') {
+    const total = await taskRepository.getUnassignedCount(kegiatan);
     return { totalAvailable: total };
   }
 
