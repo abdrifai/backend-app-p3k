@@ -65,7 +65,7 @@ export class DataP3kService {
     const [
       totalAll,
       totalActive,
-      totalPension,
+      totalPensiun,
       genderCount,
       pendidikanStats,
       unorStats,
@@ -88,7 +88,7 @@ export class DataP3kService {
       summary: {
         total: totalAll,
         aktif: totalActive,
-        pensiun: totalPension
+        pensiun: totalPensiun
       },
       total: totalActive, // Keep for backward compatibility with existing charts
       gender: genderCount,
@@ -114,7 +114,7 @@ export class DataP3kService {
     };
   }
 
-  static async setPension({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
+  static async setPensiun({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
     const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
     if (!dataP3k) {
       const error = new Error('Data P3K tidak ditemukan');
@@ -128,17 +128,18 @@ export class DataP3kService {
       throw error;
     }
 
-    return await DataP3kRepository.setPension({
+    return await DataP3kRepository.setPensiun({
       nipBaru,
       nomorSk,
       tanggalSk,
       fileUrl
     });
   }
+  static setPension = this.setPensiun;
 
-  static async getAllPensioned({ page = 1, limit = 10, search = '' }) {
+  static async getAllPensiun({ page = 1, limit = 10, search = '' }) {
     const skip = (page - 1) * limit;
-    const { data, total } = await DataP3kRepository.findAllPensioned({ skip, take: limit, search });
+    const { data, total } = await DataP3kRepository.findAllPensiun({ skip, take: limit, search });
 
     return {
       data,
@@ -150,8 +151,9 @@ export class DataP3kService {
       }
     };
   }
+  static getAllPensioned = this.getAllPensiun;
 
-  static async updatePension({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
+  static async updatePensiun({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
     const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
     if (!dataP3k) {
       const error = new Error('Data P3K tidak ditemukan');
@@ -165,15 +167,16 @@ export class DataP3kService {
       throw error;
     }
 
-    return await DataP3kRepository.updatePension({
+    return await DataP3kRepository.updatePensiun({
       nipBaru,
       nomorSk,
       tanggalSk,
       fileUrl
     });
   }
+  static updatePension = this.updatePensiun;
 
-  static async revertPension(nipBaru) {
+  static async revertPensiun(nipBaru) {
     const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
     if (!dataP3k) {
       const error = new Error('Data P3K tidak ditemukan');
@@ -187,8 +190,9 @@ export class DataP3kService {
       throw error;
     }
 
-    return await DataP3kRepository.revertPension(nipBaru);
+    return await DataP3kRepository.revertPensiun(nipBaru);
   }
+  static revertPension = this.revertPensiun;
 
   static async updateData(nipBaru, payload, userId) {
     const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);

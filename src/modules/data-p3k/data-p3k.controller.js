@@ -1,6 +1,6 @@
 import { DataP3kService } from './data-p3k.service.js';
 import { asyncHandler } from '../../middlewares/error.middleware.js';
-import { setPensionSchema, updatePensionSchema, revertPensionSchema, updateDataP3kSchema } from './data-p3k.validation.js';
+import { setPensiunSchema, updatePensiunSchema, revertPensiunSchema, updateDataP3kSchema } from './data-p3k.validation.js';
 
 export class DataP3kController {
   /**
@@ -219,7 +219,7 @@ export class DataP3kController {
 
   /**
    * @swagger
-   * /api/v1/data-p3k/set-pension:
+   * /api/v1/data-p3k/set-pensiun:
    *   post:
    *     tags: [Manajemen Pensiun]
    *     summary: Set status pegawai menjadi Pensiun
@@ -247,8 +247,8 @@ export class DataP3kController {
    *       404:
    *         description: Data P3K tidak ditemukan
    */
-  static setPension = asyncHandler(async (req, res) => {
-    const { error, value } = setPensionSchema.validate(req.body);
+  static setPensiun = asyncHandler(async (req, res) => {
+    const { error, value } = setPensiunSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
         success: false,
@@ -265,8 +265,8 @@ export class DataP3kController {
       });
     }
 
-    const fileUrl = `/uploads/pension-sk/${req.file.filename}`;
-    const result = await DataP3kService.setPension({ ...value, fileUrl });
+    const fileUrl = `/uploads/pensiun-sk/${req.file.filename}`;
+    const result = await DataP3kService.setPensiun({ ...value, fileUrl });
 
     res.status(200).json({
       success: true,
@@ -274,10 +274,11 @@ export class DataP3kController {
       data: result
     });
   });
+  static setPension = this.setPensiun;
 
   /**
    * @swagger
-   * /api/v1/data-p3k/pensioned:
+   * /api/v1/data-p3k/pensiun:
    *   get:
    *     tags: [Manajemen Pensiun]
    *     summary: Daftar semua pegawai yang sudah pensiun
@@ -300,12 +301,12 @@ export class DataP3kController {
    *       200:
    *         description: Berhasil mengambil data pegawai pensiun
    */
-  static getAllPensioned = asyncHandler(async (req, res) => {
+  static getAllPensiun = asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || '';
 
-    const result = await DataP3kService.getAllPensioned({ page, limit, search });
+    const result = await DataP3kService.getAllPensiun({ page, limit, search });
 
     res.status(200).json({
       success: true,
@@ -314,10 +315,11 @@ export class DataP3kController {
       meta: result.meta
     });
   });
+  static getAllPensioned = this.getAllPensiun;
 
   /**
    * @swagger
-   * /api/v1/data-p3k/update-pension:
+   * /api/v1/data-p3k/update-pensiun:
    *   put:
    *     tags: [Manajemen Pensiun]
    *     summary: Edit data SK Pensiun
@@ -345,8 +347,8 @@ export class DataP3kController {
    *       404:
    *         description: Data P3K tidak ditemukan
    */
-  static updatePension = asyncHandler(async (req, res) => {
-    const { error, value } = updatePensionSchema.validate(req.body);
+  static updatePensiun = asyncHandler(async (req, res) => {
+    const { error, value } = updatePensiunSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
         success: false,
@@ -357,10 +359,10 @@ export class DataP3kController {
 
     let fileUrl = null;
     if (req.file) {
-      fileUrl = `/uploads/pension-sk/${req.file.filename}`;
+      fileUrl = `/uploads/pensiun-sk/${req.file.filename}`;
     }
 
-    const result = await DataP3kService.updatePension({ ...value, fileUrl });
+    const result = await DataP3kService.updatePensiun({ ...value, fileUrl });
 
     res.status(200).json({
       success: true,
@@ -368,10 +370,11 @@ export class DataP3kController {
       data: result
     });
   });
+  static updatePension = this.updatePensiun;
 
   /**
    * @swagger
-   * /api/v1/data-p3k/revert-pension:
+   * /api/v1/data-p3k/revert-pensiun:
    *   post:
    *     tags: [Manajemen Pensiun]
    *     summary: Batalkan status pensiun
@@ -392,8 +395,8 @@ export class DataP3kController {
    *       404:
    *         description: Data P3K tidak ditemukan
    */
-  static revertPension = asyncHandler(async (req, res) => {
-    const { error, value } = revertPensionSchema.validate(req.body);
+  static revertPensiun = asyncHandler(async (req, res) => {
+    const { error, value } = revertPensiunSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
         success: false,
@@ -402,7 +405,7 @@ export class DataP3kController {
       });
     }
 
-    const result = await DataP3kService.revertPension(value.nipBaru);
+    const result = await DataP3kService.revertPensiun(value.nipBaru);
 
     res.status(200).json({
       success: true,
@@ -410,6 +413,7 @@ export class DataP3kController {
       data: result
     });
   });
+  static revertPension = this.revertPensiun;
 
   /**
    * @swagger

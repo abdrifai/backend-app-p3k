@@ -435,16 +435,34 @@ export class DataP3kRepository {
     });
   }
 
-  static async setPension({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
+  static async setPensiun({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
     return prisma.$transaction(async (tx) => {
-      // 1. Create ArsipSkPensiun
-      const arsipSk = await tx.arsipSkPensiun.create({
-        data: {
-          nomorSk,
-          tanggalSk,
-          fileUrl
-        }
+      const trimmedNomorSk = nomorSk ? nomorSk.trim() : '';
+      const trimmedTanggalSk = tanggalSk ? tanggalSk.trim() : null;
+
+      // 1. Check if ArsipSkPensiun with nomorSk already exists
+      let arsipSk = await tx.arsipSkPensiun.findUnique({
+        where: { nomorSk: trimmedNomorSk }
       });
+
+      if (arsipSk) {
+        const updateData = { isDeleted: false };
+        if (trimmedTanggalSk) updateData.tanggalSk = trimmedTanggalSk;
+        if (fileUrl) updateData.fileUrl = fileUrl;
+
+        arsipSk = await tx.arsipSkPensiun.update({
+          where: { id: arsipSk.id },
+          data: updateData
+        });
+      } else {
+        arsipSk = await tx.arsipSkPensiun.create({
+          data: {
+            nomorSk: trimmedNomorSk,
+            tanggalSk: trimmedTanggalSk || null,
+            fileUrl: fileUrl || null
+          }
+        });
+      }
 
       // 2. Update DataP3k status and link to ArsipSkPensiun
       return await tx.dataP3k.update({
@@ -457,8 +475,9 @@ export class DataP3kRepository {
       });
     });
   }
+  static setPension = this.setPensiun;
 
-  static async findAllPensioned({ skip, take, search }) {
+  static async findAllPensiun({ skip, take, search }) {
     const where = { AND: [{ isDeleted: false }, { statusPensiun: 'PENSIUN' }] };
 
     if (search) {
@@ -484,27 +503,147 @@ export class DataP3kRepository {
 
     return { data, total };
   }
+  static findAllPensioned = this.findAllPensiun;
 
-  static async updatePension({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
+  static async updatePensiun({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
     return prisma.$transaction(async (tx) => {
       const p3k = await tx.dataP3k.findUnique({
         where: { nipBaru },
         select: { arsipSkPensiunId: true }
       });
 
-      if (!p3k || !p3k.arsipSkPensiunId) {
-        throw new Error('Data arsip SK tidak ditemukan');
+      if (!p3k) {
+        const error = new Error('Data P3K tidak ditemukan');
+        error.status = 404;
+        throw error;
       }
 
-      const updateData = {};
-      if (nomorSk) updateData.nomorSk = nomorSk;
-      if (tanggalSk) updateData.tanggalSk = tanggalSk;
-      if (fileUrl) updateData.fileUrl = fileUrl;
+      // Find if current arsip exists
+      let currentArsip = null;
+      if (p3k.arsipSkPensiunId) {
+        currentArsip = await tx.arsipSkPensiun.findUnique({
+          where: { id: p3k.arsipSkPensiunId }
+        });
+      }
 
-      await tx.arsipSkPensiun.update({
-        where: { id: p3k.arsipSkPensiunId },
-        data: updateData
-      });
+      const trimmedNomorSk = nomorSk !== undefined && nomorSk !== null ? nomorSk.trim() : null;
+      const trimmedTanggalSk = tanggalSk !== undefined && tanggalSk !== null ? tanggalSk.trim() : null;
+
+      // Scenario 1: User has no existing valid arsip in DB
+      if (!currentArsip) {
+        if (!trimmedNomorSk) {
+          const error = new Error('Nomor SK Pensiun wajib diisi.');
+          error.status = 400;
+          throw error;
+        }
+
+        // Check if ArsipSkPensiun with trimmedNomorSk already exists
+        let targetArsip = await tx.arsipSkPensiun.findUnique({
+          where: { nomorSk: trimmedNomorSk }
+        });
+
+        if (targetArsip) {
+          const updateData = { isDeleted: false };
+          if (trimmedTanggalSk) updateData.tanggalSk = trimmedTanggalSk;
+          if (fileUrl) updateData.fileUrl = fileUrl;
+
+          targetArsip = await tx.arsipSkPensiun.update({
+            where: { id: targetArsip.id },
+            data: updateData
+          });
+        } else {
+          targetArsip = await tx.arsipSkPensiun.create({
+            data: {
+              nomorSk: trimmedNomorSk,
+              tanggalSk: trimmedTanggalSk || null,
+              fileUrl: fileUrl || null
+            }
+          });
+        }
+
+        // Link DataP3k to targetArsip
+        return await tx.dataP3k.update({
+          where: { nipBaru },
+          data: { arsipSkPensiunId: targetArsip.id },
+          include: { arsipSkPensiun: true }
+        });
+      }
+
+      // Scenario 2: User has an existing valid arsip
+      const isNomorSkChanging = trimmedNomorSk && trimmedNomorSk !== currentArsip.nomorSk;
+
+      if (isNomorSkChanging) {
+        const countUsingCurrent = await tx.dataP3k.count({
+          where: { arsipSkPensiunId: currentArsip.id }
+        });
+
+        let targetArsip = await tx.arsipSkPensiun.findUnique({
+          where: { nomorSk: trimmedNomorSk }
+        });
+
+        if (targetArsip) {
+          const updateData = { isDeleted: false };
+          if (trimmedTanggalSk) updateData.tanggalSk = trimmedTanggalSk;
+          if (fileUrl) updateData.fileUrl = fileUrl;
+
+          targetArsip = await tx.arsipSkPensiun.update({
+            where: { id: targetArsip.id },
+            data: updateData
+          });
+
+          await tx.dataP3k.update({
+            where: { nipBaru },
+            data: { arsipSkPensiunId: targetArsip.id }
+          });
+
+          if (countUsingCurrent <= 1 && currentArsip.id !== targetArsip.id) {
+            await tx.arsipSkPensiun.update({
+              where: { id: currentArsip.id },
+              data: { isDeleted: true }
+            });
+          }
+        } else {
+          if (countUsingCurrent <= 1) {
+            const updateData = { nomorSk: trimmedNomorSk };
+            if (trimmedTanggalSk !== null && trimmedTanggalSk !== '') updateData.tanggalSk = trimmedTanggalSk;
+            if (fileUrl) updateData.fileUrl = fileUrl;
+
+            await tx.arsipSkPensiun.update({
+              where: { id: currentArsip.id },
+              data: updateData
+            });
+          } else {
+            const newArsip = await tx.arsipSkPensiun.create({
+              data: {
+                nomorSk: trimmedNomorSk,
+                tanggalSk: trimmedTanggalSk || currentArsip.tanggalSk,
+                fileUrl: fileUrl || currentArsip.fileUrl
+              }
+            });
+
+            await tx.dataP3k.update({
+              where: { nipBaru },
+              data: { arsipSkPensiunId: newArsip.id }
+            });
+          }
+        }
+      } else {
+        // nomorSk didn't change, update tanggalSk and/or fileUrl
+        const updateData = {};
+        if (trimmedTanggalSk !== null && trimmedTanggalSk !== '') {
+          updateData.tanggalSk = trimmedTanggalSk;
+        }
+        if (fileUrl) {
+          updateData.fileUrl = fileUrl;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await tx.arsipSkPensiun.update({
+            where: { id: currentArsip.id },
+            data: updateData
+          });
+        }
+      }
 
       return tx.dataP3k.findUnique({
         where: { nipBaru },
@@ -512,8 +651,9 @@ export class DataP3kRepository {
       });
     });
   }
+  static updatePension = this.updatePensiun;
 
-  static async revertPension(nipBaru) {
+  static async revertPensiun(nipBaru) {
     return prisma.$transaction(async (tx) => {
       const p3k = await tx.dataP3k.findUnique({
         where: { nipBaru },
@@ -529,17 +669,31 @@ export class DataP3kRepository {
         }
       });
 
-      // Soft delete the ArsipSkPensiun record
+      // Soft delete the ArsipSkPensiun record if no other record is referencing it
       if (p3k?.arsipSkPensiunId) {
-        await tx.arsipSkPensiun.update({
-          where: { id: p3k.arsipSkPensiunId },
-          data: { isDeleted: true }
+        const arsip = await tx.arsipSkPensiun.findUnique({
+          where: { id: p3k.arsipSkPensiunId }
         });
+        if (arsip) {
+          const countUsing = await tx.dataP3k.count({
+            where: {
+              arsipSkPensiunId: arsip.id,
+              nipBaru: { not: nipBaru }
+            }
+          });
+          if (countUsing === 0) {
+            await tx.arsipSkPensiun.update({
+              where: { id: arsip.id },
+              data: { isDeleted: true }
+            });
+          }
+        }
       }
 
       return updated;
     });
   }
+  static revertPension = this.revertPensiun;
 
   static async patchData(nipBaru, payload) {
     return prisma.dataP3k.update({

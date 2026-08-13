@@ -60,7 +60,7 @@ class BackupController {
    * @swagger
    * /api/backup/archive:
    *   post:
-   *     summary: Download arsip folder uploads (final-pk & pension-sk) as ZIP
+   *     summary: Download arsip folder uploads (final-pk & pensiun-sk) as ZIP
    *     tags: [Backup]
    *     security:
    *       - bearerAuth: []
@@ -74,7 +74,7 @@ class BackupController {
    *                 type: array
    *                 items:
    *                   type: string
-   *                   enum: [final-pk, pension-sk]
+   *                   enum: [final-pk, pensiun-sk]
    *     responses:
    *       200:
    *         description: ZIP file download
@@ -85,7 +85,7 @@ class BackupController {
    *               format: binary
    */
   downloadArchive = asyncHandler(async (req, res) => {
-    const folders  = Array.isArray(req.body?.folders) ? req.body.folders : ['final-pk', 'pension-sk'];
+    const folders  = Array.isArray(req.body?.folders) ? req.body.folders : ['final-pk', 'pensiun-sk'];
     const zipBuf   = await backupService.generateArchiveZip(folders);
     const filename = `backup_arsip_p3k_${new Date().toISOString().slice(0, 10)}.zip`;
     res.setHeader('Content-Type', 'application/zip');

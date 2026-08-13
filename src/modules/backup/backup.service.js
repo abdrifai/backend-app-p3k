@@ -58,10 +58,10 @@ class BackupService {
   }
 
   // ── ZIP arsip folder ─────────────────────────────────────────────────────
-  // folders: array of folder names inside uploads/ e.g. ['final-pk','pension-sk']
+  // folders: array of folder names inside uploads/ e.g. ['final-pk','pensiun-sk']
   // returns: Buffer of zip file
-  async generateArchiveZip(folders = ['final-pk', 'pension-sk']) {
-    const allowed  = ['final-pk', 'pension-sk'];
+  async generateArchiveZip(folders = ['final-pk', 'pensiun-sk']) {
+    const allowed  = ['final-pk', 'pensiun-sk', 'pension-sk'];
     const selected = folders.filter((f) => allowed.includes(f));
     if (selected.length === 0) {
       const e = new Error('Tidak ada folder arsip yang valid dipilih.');
@@ -70,7 +70,7 @@ class BackupService {
     }
 
     // Build list of relative paths to zip (relative to UPLOADS_ROOT)
-    // zip will be created with paths: final-pk/... pension-sk/...
+    // zip will be created with paths: final-pk/... pensiun-sk/...
     const args = ['-r', '-', ...selected];
 
     try {

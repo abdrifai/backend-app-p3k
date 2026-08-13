@@ -21,7 +21,7 @@ class BackupRepository {
 
   // Hitung jumlah file & total ukuran tiap folder arsip
   async getArchiveStats(uploadsRoot) {
-    const folders = ['final-pk', 'pension-sk'];
+    const folders = ['final-pk', 'pensiun-sk', 'pension-sk'];
     const result  = {};
 
     for (const folder of folders) {

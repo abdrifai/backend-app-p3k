@@ -23,11 +23,12 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-export const uploadPensionSk = multer({
-  storage: createStorage('uploads/pension-sk'),
+export const uploadPensiunSk = multer({
+  storage: createStorage('uploads/pensiun-sk'),
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
+export const uploadPensionSk = uploadPensiunSk; // Backward compatibility
 
 export const uploadKontrakArsip = multer({
   storage: createStorage('uploads/kontrak-arsip'),

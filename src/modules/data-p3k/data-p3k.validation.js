@@ -1,20 +1,23 @@
 import Joi from 'joi';
 
-export const setPensionSchema = Joi.object({
+export const setPensiunSchema = Joi.object({
   nipBaru: Joi.string().required(),
   nomorSk: Joi.string().required(),
   tanggalSk: Joi.string().required(),
 });
+export const setPensionSchema = setPensiunSchema;
 
-export const updatePensionSchema = Joi.object({
+export const updatePensiunSchema = Joi.object({
   nipBaru: Joi.string().required(),
-  nomorSk: Joi.string().optional(),
-  tanggalSk: Joi.string().optional(),
+  nomorSk: Joi.string().optional().allow('', null),
+  tanggalSk: Joi.string().optional().allow('', null),
 });
+export const updatePensionSchema = updatePensiunSchema;
 
-export const revertPensionSchema = Joi.object({
+export const revertPensiunSchema = Joi.object({
   nipBaru: Joi.string().required(),
 });
+export const revertPensionSchema = revertPensiunSchema;
 
 export const updateDataP3kSchema = Joi.object({
   unorIndukId: Joi.string().optional().allow(null, ''),
