@@ -26,7 +26,7 @@ class KegiatanRepository {
 
   async getAll({ page = 1, limit = 10, search = '' }) {
     const skip = (page - 1) * limit;
-    const where = search ? { nama: { contains: search, mode: 'insensitive' } } : {};
+    const where = search ? { nama: { contains: search } } : {};
     const [data, total] = await Promise.all([
       prisma.kegiatan.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
       prisma.kegiatan.count({ where })
