@@ -43,8 +43,10 @@ export const authenticate = async (req, res, next) => {
 };
 
 export const authorize = (...roles) => {
+  const allowed = roles.map(r => String(r).toLowerCase());
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    const userRole = String(req.user?.role || '').toLowerCase();
+    if (!req.user || !allowed.includes(userRole)) {
       return res.status(403).json({ 
         success: false, 
         message: `User role ${req.user?.role} is not authorized to access this route`
