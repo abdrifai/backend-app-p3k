@@ -47,12 +47,14 @@ export class PerpanjanganRepository {
     }
     if (search) {
       where.AND.push({
-        dataP3k: {
-          OR: [
-            { nama: { contains: search } },
-            { nipBaru: { contains: search } }
-          ]
-        }
+        OR: [
+          { dataP3k: { nama: { contains: search } } },
+          { dataP3k: { nipBaru: { contains: search } } },
+          { dataP3k: { unorNama: { contains: search } } },
+          { nomorKontrak: { contains: search } },
+          { editedBy: { namaLengkap: { contains: search } } },
+          { editedBy: { username: { contains: search } } }
+        ]
       });
     }
 
@@ -75,7 +77,7 @@ export class PerpanjanganRepository {
             select: { id: true, nama: true }
           },
           editedBy: {
-            select: { id: true, username: true, namaLengkap: true }
+            select: { id: true, username: true, namaLengkap: true, role: true, foto: true }
           }
         },
         orderBy: { createdAt: 'desc' }
