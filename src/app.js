@@ -19,6 +19,7 @@ import gajiRoutes from './modules/gaji/gaji.routes.js';
 import taskFieldConfigRoutes from './modules/task-field-config/task-field-config.routes.js';
 import { activityLogRoutes } from './modules/activity-log/activityLog.routes.js';
 import backupRoutes from './modules/backup/backup.routes.js';
+import roleMenuRoutes from './modules/role-menu/role-menu.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import path from 'path';
 
@@ -84,6 +85,7 @@ app.use('/api/v1/gaji', gajiRoutes);
 app.use('/api/task-field-configs', taskFieldConfigRoutes);
 app.use('/api/v1/activity-logs', activityLogRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/role-menus', roleMenuRoutes);
 
 // 404 Handler
 app.use(notFoundHandler);

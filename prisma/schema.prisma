@@ -440,3 +440,17 @@ model Kegiatan {
   updatedAt DateTime @updatedAt
 }
 
+model RoleMenuPermission {
+  id          String   @id @default(uuid())
+  role        String   @db.VarChar(50)
+  menuKey     String   @db.VarChar(100)
+  isAllowed   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([role, menuKey])
+  @@index([role])
+  @@map("role_menu_permissions")
+}
+
+

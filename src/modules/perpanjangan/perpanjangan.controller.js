@@ -122,14 +122,15 @@ export class PerpanjanganController {
     const limit = req.query.limit === 'all' ? 'all' : (parseInt(req.query.limit) || 10);
     const status = req.query.status || '';
     const search = req.query.search || '';
+    const isLaporan = req.query.isLaporan === 'true' || req.query.ignoreUserFilter === 'true' || req.query.all === 'true';
 
-    const isAdmin = ['admin', 'ADMIN', 'Admin'].includes(req.user?.role);
+    const isAdmin = ['admin', 'ADMIN', 'Admin'].includes(req.user?.role) || isLaporan;
     const result = await PerpanjanganService.getAllUsulan({ 
       page, 
       limit, 
       status, 
       search,
-      userId: req.user?.id,
+      userId: isLaporan ? null : req.user?.id,
       isAdmin
     });
     res.status(200).json({
