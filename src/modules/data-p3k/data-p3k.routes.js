@@ -22,6 +22,7 @@ router.get('/statistics', DataP3kController.getStatistics);
 router.get('/retirement', DataP3kController.getRetirementReport);
 router.get('/differences', DataP3kController.getDifferences);
 router.get('/', DataP3kController.getAllDataP3k);
+router.get('/:nipBaru', DataP3kController.getByNipBaru);
 router.put('/:nipBaru', DataP3kController.updateData);
 
 export const dataP3kRoutes = router;

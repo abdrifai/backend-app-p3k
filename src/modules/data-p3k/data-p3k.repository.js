@@ -429,9 +429,22 @@ export class DataP3kRepository {
   }
 
   static async findByNipBaru(nipBaru) {
-    return prisma.dataP3k.findUnique({
+    return prisma.dataP3k.findFirst({
       where: { nipBaru, isDeleted: false },
-      include: { arsipSkPensiun: true }
+      include: {
+        unorInduk: true,
+        arsipSkPensiun: true,
+        riwayatKontrak: {
+          where: { isDeleted: false },
+          include: { arsipKontrak: true },
+          orderBy: { kontrakKe: 'asc' }
+        },
+        usulanPerpanjangan: {
+          where: { isDeleted: false },
+          include: { templateKontrak: true },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
     });
   }
 

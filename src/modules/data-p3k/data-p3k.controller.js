@@ -470,4 +470,33 @@ export class DataP3kController {
       data: result
     });
   });
+
+  /**
+   * @swagger
+   * /api/v1/data-p3k/{nipBaru}:
+   *   get:
+   *     tags: [Data P3K]
+   *     summary: Ambil profil detail pegawai PPPK berdasarkan NIP
+   *     parameters:
+   *       - in: path
+   *         name: nipBaru
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil profil data P3K
+   *       404:
+   *         description: Pegawai tidak ditemukan
+   */
+  static getByNipBaru = asyncHandler(async (req, res) => {
+    const { nipBaru } = req.params;
+    const result = await DataP3kService.getByNipBaru(nipBaru);
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil profil data pegawai P3K',
+      data: result
+    });
+  });
 }

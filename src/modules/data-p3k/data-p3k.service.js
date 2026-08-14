@@ -223,4 +223,14 @@ export class DataP3kService {
 
     return updatedData;
   }
+
+  static async getByNipBaru(nipBaru) {
+    const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
+    if (!dataP3k) {
+      const error = new Error('Data Pegawai PPPK tidak ditemukan');
+      error.statusCode = 404;
+      throw error;
+    }
+    return dataP3k;
+  }
 }
