@@ -92,6 +92,28 @@ class TaskController {
       data: result
     });
   });
+
+  getDashboardStats = asyncHandler(async (req, res) => {
+    const kegiatan = req.query.kegiatan || '';
+    const result = await taskService.getDashboardStats(kegiatan);
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mendapatkan statistik dashboard tugas peremajaan',
+      data: result
+    });
+  });
+
+  getDashboardDetail = asyncHandler(async (req, res) => {
+    const result = await taskService.getDashboardDetail(req.query);
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mendapatkan rincian data dashboard tugas peremajaan',
+      ...result
+    });
+  });
+
   getUnassignedCount = asyncHandler(async (req, res) => {
     const kegiatan = req.query.kegiatan || '';
     const result = await taskService.getUnassignedCount(kegiatan);

@@ -118,6 +118,15 @@ export const MENU_CATALOG = [
     order: 4
   },
   {
+    key: 'task-peremajaan-dashboard',
+    label: 'Dashboard Peremajaan',
+    path: '/task-peremajaan/dashboard',
+    icon: 'ri-dashboard-3-line',
+    parentKey: 'task-user',
+    group: 'Tugas Pengguna',
+    order: 4.05
+  },
+  {
     key: 'task-peremajaan',
     label: 'Usul Peremajaan Data',
     path: '/task-user-peremajaan',
@@ -324,6 +333,7 @@ export const DEFAULT_PERMISSIONS = {
     'perpanjangan-usulan',
     'perpanjangan-inbox',
     'task-user',
+    'task-peremajaan-dashboard',
     'task-peremajaan',
     'task-usulan-pk',
     'laporan',

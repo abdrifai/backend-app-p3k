@@ -324,6 +324,318 @@ class TaskRepository {
 
 
   /**
+   * Get comprehensive dashboard statistics for Task Peremajaan
+   */
+  async getDashboardStats(kegiatan = '') {
+    const taskWhere = {
+      isDeleted: false,
+      ...(kegiatan ? { kegiatan } : {})
+    };
+
+    const [
+      totalPegawaiAktif,
+      totalAssigned,
+      totalCompleted,
+      totalSkCpnsUploaded,
+      assignedGroup,
+      completedGroup,
+      users,
+      recentCompleted,
+      kegiatanList,
+      unorGroup
+    ] = await Promise.all([
+      // 1. Total Pegawai Aktif
+      prisma.dataP3k.count({
+        where: { statusPensiun: 'AKTIF', isDeleted: false }
+      }),
+      // 2. Total Task Assigned
+      prisma.taskPeremajaan.count({
+        where: taskWhere
+      }),
+      // 3. Total Task Completed
+      prisma.taskPeremajaan.count({
+        where: { ...taskWhere, isCompleted: true }
+      }),
+      // 4. Total SK CPNS Uploaded in DataP3k
+      prisma.dataP3k.count({
+        where: {
+          isDeleted: false,
+          arsipSkCpnsId: { not: null }
+        }
+      }),
+      // 5. Group by User - Total Assigned
+      prisma.taskPeremajaan.groupBy({
+        by: ['assignedToUserId'],
+        where: taskWhere,
+        _count: { id: true }
+      }),
+      // 6. Group by User - Total Completed
+      prisma.taskPeremajaan.groupBy({
+        by: ['assignedToUserId'],
+        where: { ...taskWhere, isCompleted: true },
+        _count: { id: true }
+      }),
+      // 7. Users
+      prisma.user.findMany({
+        where: { isDeleted: false },
+        select: { id: true, username: true, namaLengkap: true, role: true, foto: true }
+      }),
+      // 8. Recent 15 Completed Tasks
+      prisma.taskPeremajaan.findMany({
+        where: { ...taskWhere, isCompleted: true },
+        orderBy: [{ completedAt: 'desc' }, { updatedAt: 'desc' }],
+        take: 15,
+        include: {
+          dataP3k: {
+            select: {
+              id: true,
+              nama: true,
+              nipBaru: true,
+              jabatanNama: true,
+              unorNama: true,
+              golAkhirNama: true,
+              nomorSkCpns: true,
+              arsipSkCpnsId: true,
+              arsipSkCpns: {
+                select: { id: true, fileUrl: true }
+              }
+            }
+          },
+          assignedToUser: {
+            select: { id: true, username: true, namaLengkap: true, foto: true }
+          }
+        }
+      }),
+      // 9. Distinct Kegiatan List
+      prisma.taskPeremajaan.findMany({
+        where: { isDeleted: false },
+        select: { kegiatan: true },
+        distinct: ['kegiatan']
+      }),
+      // 10. Group by UNOR (from all dataP3k)
+      prisma.dataP3k.groupBy({
+        by: ['unorNama'],
+        where: { statusPensiun: 'AKTIF', isDeleted: false },
+        _count: { id: true }
+      })
+    ]);
+
+    // Calculate unassigned
+    let unassignedCount = 0;
+    if (kegiatan) {
+      const assignedRecords = await prisma.taskPeremajaan.findMany({
+        where: { isDeleted: false, kegiatan },
+        select: { dataP3kId: true }
+      });
+      const assignedIds = assignedRecords.map(r => r.dataP3kId);
+      unassignedCount = await prisma.dataP3k.count({
+        where: {
+          id: { notIn: assignedIds },
+          statusPensiun: 'AKTIF',
+          isDeleted: false
+        }
+      });
+    } else {
+      unassignedCount = Math.max(0, totalPegawaiAktif - totalAssigned);
+    }
+
+    const totalPending = Math.max(0, totalAssigned - totalCompleted);
+    const completionPercentage = totalAssigned > 0 ? Number(((totalCompleted / totalAssigned) * 100).toFixed(1)) : 0;
+    const assignmentPercentage = totalPegawaiAktif > 0 ? Number(((totalAssigned / totalPegawaiAktif) * 100).toFixed(1)) : 0;
+
+    // Operator progress list
+    const byOperator = users.map(user => {
+      const assigned = assignedGroup.find(g => g.assignedToUserId === user.id)?._count.id || 0;
+      const completed = completedGroup.find(g => g.assignedToUserId === user.id)?._count.id || 0;
+      const pending = Math.max(0, assigned - completed);
+      const percent = assigned > 0 ? Number(((completed / assigned) * 100).toFixed(1)) : 0;
+
+      return {
+        userId: user.id,
+        username: user.username,
+        namaLengkap: user.namaLengkap,
+        role: user.role,
+        foto: user.foto,
+        totalAssigned: assigned,
+        totalCompleted: completed,
+        totalPending: pending,
+        completionPercentage: percent
+      };
+    }).filter(u => u.totalAssigned > 0 || !u.role.includes('admin'))
+      .sort((a, b) => b.totalCompleted - a.totalCompleted || b.totalAssigned - a.totalAssigned);
+
+    // Get completed count per UNOR
+    const completedTasksWithUnor = await prisma.taskPeremajaan.findMany({
+      where: { ...taskWhere, isCompleted: true },
+      select: {
+        dataP3k: {
+          select: { unorNama: true }
+        }
+      }
+    });
+
+    const unorCompletedMap = {};
+    completedTasksWithUnor.forEach(t => {
+      const unor = t.dataP3k?.unorNama || 'Lainnya';
+      unorCompletedMap[unor] = (unorCompletedMap[unor] || 0) + 1;
+    });
+
+    const byUnor = unorGroup.map(u => {
+      const unorNama = u.unorNama || 'Tanpa Unit Kerja';
+      const total = u._count.id || 0;
+      const completed = unorCompletedMap[unorNama] || 0;
+      const pending = Math.max(0, total - completed);
+      const percent = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
+
+      return {
+        unorNama,
+        totalPegawai: total,
+        totalCompleted: completed,
+        totalPending: pending,
+        completionPercentage: percent
+      };
+    }).sort((a, b) => b.totalPegawai - a.totalPegawai);
+
+    return {
+      summary: {
+        totalPegawaiAktif,
+        totalAssigned,
+        totalCompleted,
+        totalPending,
+        totalUnassigned: unassignedCount,
+        totalSkCpnsUploaded,
+        completionPercentage,
+        assignmentPercentage
+      },
+      byOperator,
+      byUnor,
+      recentCompleted: recentCompleted.map(t => ({
+        taskId: t.id,
+        kegiatan: t.kegiatan,
+        completedAt: t.completedAt || t.updatedAt,
+        dataP3k: t.dataP3k,
+        operator: t.assignedToUser
+      })),
+      kegiatanList: kegiatanList.map(k => k.kegiatan).filter(Boolean)
+    };
+  }
+
+  /**
+   * Get drilldown task records for dashboard modal / table
+   */
+  async getDashboardDetail({ status = '', userId = '', unorNama = '', kegiatan = '', search = '', skip = 0, take = 10 }) {
+    if (status === 'unassigned') {
+      let assignedIds = [];
+      if (kegiatan) {
+        const assignedRecords = await prisma.taskPeremajaan.findMany({
+          where: { isDeleted: false, kegiatan },
+          select: { dataP3kId: true }
+        });
+        assignedIds = assignedRecords.map(r => r.dataP3kId);
+      } else {
+        const assignedRecords = await prisma.taskPeremajaan.findMany({
+          where: { isDeleted: false },
+          select: { dataP3kId: true }
+        });
+        assignedIds = assignedRecords.map(r => r.dataP3kId);
+      }
+
+      const where = {
+        id: { notIn: assignedIds },
+        statusPensiun: 'AKTIF',
+        isDeleted: false,
+        ...(unorNama ? { unorNama } : {}),
+        ...(search ? {
+          OR: [
+            { nama: { contains: search } },
+            { nipBaru: { contains: search } },
+            { jabatanNama: { contains: search } }
+          ]
+        } : {})
+      };
+
+      const [data, total] = await Promise.all([
+        prisma.dataP3k.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { nama: 'asc' },
+          include: {
+            arsipSkCpns: { select: { id: true, fileUrl: true } }
+          }
+        }),
+        prisma.dataP3k.count({ where })
+      ]);
+
+      return {
+        data: data.map(d => ({
+          id: d.id,
+          dataP3kId: d.id,
+          dataP3k: d,
+          isCompleted: false,
+          isAssigned: false,
+          kegiatan: '-',
+          operator: null
+        })),
+        total
+      };
+    }
+
+    const where = {
+      isDeleted: false,
+      ...(kegiatan ? { kegiatan } : {}),
+      ...(userId ? { assignedToUserId: userId } : {}),
+      ...(status === 'completed' ? { isCompleted: true } : {}),
+      ...(status === 'pending' ? { isCompleted: false } : {}),
+      ...(unorNama ? { dataP3k: { unorNama } } : {}),
+      ...(search ? {
+        dataP3k: {
+          ...(unorNama ? { unorNama } : {}),
+          OR: [
+            { nama: { contains: search } },
+            { nipBaru: { contains: search } },
+            { jabatanNama: { contains: search } }
+          ]
+        }
+      } : {})
+    };
+
+    const [tasks, total] = await Promise.all([
+      prisma.taskPeremajaan.findMany({
+        where,
+        skip,
+        take,
+        orderBy: [{ isCompleted: 'desc' }, { completedAt: 'desc' }, { updatedAt: 'desc' }],
+        include: {
+          dataP3k: {
+            include: {
+              arsipSkCpns: { select: { id: true, fileUrl: true } }
+            }
+          },
+          assignedToUser: {
+            select: { id: true, username: true, namaLengkap: true, foto: true }
+          }
+        }
+      }),
+      prisma.taskPeremajaan.count({ where })
+    ]);
+
+    return {
+      data: tasks.map(t => ({
+        id: t.id,
+        taskId: t.id,
+        dataP3kId: t.dataP3kId,
+        dataP3k: t.dataP3k,
+        isCompleted: t.isCompleted,
+        completedAt: t.completedAt,
+        kegiatan: t.kegiatan,
+        operator: t.assignedToUser
+      })),
+      total
+    };
+  }
+
+  /**
    * Reset assignments for specific users (unassign unfinished tasks by removing them)
    */
   async unassignUserTasks(userId) {

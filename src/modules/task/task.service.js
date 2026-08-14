@@ -81,6 +81,42 @@ class TaskService {
     return await taskRepository.getTaskReport();
   }
 
+  async getDashboardStats(kegiatan = '') {
+    return await taskRepository.getDashboardStats(kegiatan);
+  }
+
+  async getDashboardDetail(query = {}) {
+    const page = parseInt(query.page) || 1;
+    const limit = parseInt(query.limit) || 10;
+    const status = query.status || '';
+    const userId = query.userId || '';
+    const unorNama = query.unorNama || '';
+    const kegiatan = query.kegiatan || '';
+    const search = query.search || '';
+
+    const skip = (page - 1) * limit;
+
+    const { data, total } = await taskRepository.getDashboardDetail({
+      status,
+      userId,
+      unorNama,
+      kegiatan,
+      search,
+      skip,
+      take: limit
+    });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
   async getUnassignedCount(kegiatan = '') {
     const total = await taskRepository.getUnassignedCount(kegiatan);
     return { totalAvailable: total };

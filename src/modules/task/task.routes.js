@@ -8,7 +8,9 @@ const router = Router();
 // Protect all routes
 router.use(authenticate);
 
-// ====== USER ROUTES ======
+// ====== USER / AUTHENTICATED ROUTES ======
+router.get('/dashboard-stats', taskController.getDashboardStats);
+router.get('/dashboard-detail', taskController.getDashboardDetail);
 router.get('/my-tasks', taskController.getMyTasks);
 router.put('/:id/complete', uploadSkCpns.single('fileSkCpns'), taskController.completeTask);
 router.get('/report', taskController.getReport);
