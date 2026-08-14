@@ -113,11 +113,14 @@ class TaskRepository {
         where,
         skip,
         take,
-        include: { dataP3k: {
-          include: {
-            unorInduk: true
+        include: {
+          dataP3k: {
+            include: {
+              unorInduk: true,
+              arsipSkCpns: true
+            }
           }
-        } },
+        },
         orderBy: { updatedAt: 'desc' },
       }),
       prisma.taskPeremajaan.count({ where })
@@ -130,39 +133,110 @@ class TaskRepository {
    * Complete a task (update DataP3k and mark TaskPeremajaan completed)
    * @param {string} taskId refers to TaskPeremajaan id
    */
-  async completeTask(taskId, updateData, editorUserId) {
-    // 1. Get task first
-    const task = await prisma.taskPeremajaan.findUnique({ where: { id: taskId } });
-    if (!task) throw new Error("Task tidak ditemukan");
+  async completeTask(taskId, updateData, editorUserId, fileData = null) {
+    return prisma.$transaction(async (tx) => {
+      // 1. Get task first
+      const task = await tx.taskPeremajaan.findUnique({ where: { id: taskId } });
+      if (!task) throw new Error("Task tidak ditemukan");
 
-    // NEW: Fetch old DataP3k for logging
-    const oldDataP3k = await prisma.dataP3k.findUnique({ where: { id: task.dataP3kId } });
+      // Fetch old DataP3k for logging
+      const oldDataP3k = await tx.dataP3k.findUnique({
+        where: { id: task.dataP3kId },
+        include: { arsipSkCpns: true }
+      });
 
-    // 2. Update DataP3k
-    await prisma.dataP3k.update({
-      where: { id: task.dataP3kId },
-      data: {
-        ...updateData,
-        editedById: editorUserId
-      }
-    });
+      // Validate nomorSkCpns & fileSkCpns if nomorSkCpns is in active configs
+      const activeNomorSk = await tx.taskFieldConfig.findFirst({
+        where: { fieldName: 'nomorSkCpns', isActive: true }
+      });
 
-    // 3. Mark Task Complete
-    const updatedTask = await prisma.taskPeremajaan.update({
-      where: { id: taskId },
-      data: {
-        isCompleted: true,
-        completedAt: new Date()
-      },
-      include: {
-        dataP3k: {
-          select: { nipBaru: true }
+      if (activeNomorSk) {
+        const nomorVal = updateData.nomorSkCpns !== undefined
+          ? String(updateData.nomorSkCpns).trim()
+          : (oldDataP3k.nomorSkCpns ? String(oldDataP3k.nomorSkCpns).trim() : '');
+
+        if (!nomorVal) {
+          const err = new Error('Nomor SK CPNS wajib diisi!');
+          err.statusCode = 400;
+          throw err;
+        }
+
+        const hasFile = fileData?.fileUrl || oldDataP3k.arsipSkCpns?.fileUrl;
+        if (!hasFile) {
+          const err = new Error('Dokumen SK CPNS (PDF) wajib diunggah!');
+          err.statusCode = 400;
+          throw err;
         }
       }
-    });
 
-    updatedTask.oldDataP3k = oldDataP3k;
-    return updatedTask;
+      let arsipSkCpnsId = oldDataP3k.arsipSkCpnsId;
+      const nomorSkCpns = updateData.nomorSkCpns !== undefined ? updateData.nomorSkCpns : oldDataP3k.nomorSkCpns;
+      const tanggalSkCpns = updateData.tanggalSkCpns !== undefined ? updateData.tanggalSkCpns : oldDataP3k.tanggalSkCpns;
+
+      // Handle SK CPNS file or nomorSkCpns update
+      if (fileData?.fileUrl || (nomorSkCpns && String(nomorSkCpns).trim() !== '')) {
+        const trimmedNomorSk = nomorSkCpns && String(nomorSkCpns).trim() !== ''
+          ? String(nomorSkCpns).trim()
+          : (oldDataP3k.nipBaru + '_SK_CPNS');
+        const trimmedTanggalSk = tanggalSkCpns ? String(tanggalSkCpns).trim() : null;
+
+        let arsip = null;
+        if (arsipSkCpnsId) {
+          arsip = await tx.arsipSkCpns.findUnique({ where: { id: arsipSkCpnsId } });
+        } else if (trimmedNomorSk) {
+          arsip = await tx.arsipSkCpns.findUnique({ where: { nomorSk: trimmedNomorSk } });
+        }
+
+        if (arsip) {
+          const updateArsip = { isDeleted: false };
+          if (trimmedNomorSk) updateArsip.nomorSk = trimmedNomorSk;
+          if (trimmedTanggalSk) updateArsip.tanggalSk = trimmedTanggalSk;
+          if (fileData?.fileUrl) updateArsip.fileUrl = fileData.fileUrl;
+
+          arsip = await tx.arsipSkCpns.update({
+            where: { id: arsip.id },
+            data: updateArsip
+          });
+          arsipSkCpnsId = arsip.id;
+        } else {
+          arsip = await tx.arsipSkCpns.create({
+            data: {
+              nomorSk: trimmedNomorSk,
+              tanggalSk: trimmedTanggalSk,
+              fileUrl: fileData?.fileUrl || null
+            }
+          });
+          arsipSkCpnsId = arsip.id;
+        }
+      }
+
+      // 2. Update DataP3k
+      await tx.dataP3k.update({
+        where: { id: task.dataP3kId },
+        data: {
+          ...updateData,
+          ...(arsipSkCpnsId ? { arsipSkCpnsId } : {}),
+          editedById: editorUserId
+        }
+      });
+
+      // 3. Mark Task Complete
+      const updatedTask = await tx.taskPeremajaan.update({
+        where: { id: taskId },
+        data: {
+          isCompleted: true,
+          completedAt: new Date()
+        },
+        include: {
+          dataP3k: {
+            select: { nipBaru: true }
+          }
+        }
+      });
+
+      updatedTask.oldDataP3k = oldDataP3k;
+      return updatedTask;
+    });
   }
 
   /**

@@ -68,7 +68,13 @@ class TaskController {
       throw err;
     }
 
-    const data = await taskService.completeTask(taskId, value, userId);
+    const fileData = req.file ? {
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      fileUrl: `/uploads/sk-cpns/${req.file.filename}`
+    } : null;
+
+    const data = await taskService.completeTask(taskId, value, userId, fileData);
 
     res.status(200).json({
       success: true,

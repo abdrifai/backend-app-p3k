@@ -36,6 +36,12 @@ export const uploadKontrakArsip = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
+export const uploadSkCpns = multer({
+  storage: createStorage('uploads/sk-cpns'),
+  fileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
 const docxFilter = (req, file, cb) => {
   const allowed = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

@@ -51,10 +51,10 @@ class TaskService {
     };
   }
 
-  async completeTask(taskId, updateData, userId) {
+  async completeTask(taskId, updateData, userId, fileData = null) {
     // Should verify if the task is actually assigned to the user or if user is admin
     // Or just let it update. We assume they can only see their tasks.
-    const updatedData = await taskRepository.completeTask(taskId, updateData, userId);
+    const updatedData = await taskRepository.completeTask(taskId, updateData, userId, fileData);
     
     // Extract old data for logging
     const oldData = {};
@@ -70,6 +70,7 @@ class TaskService {
     // Log Activity
     activityLogService.logActivity(userId, 'COMPLETE_TASK', 'TaskPeremajaan', updatedData.dataP3k?.nipBaru || taskId, {
       updatedFields: Object.keys(updateData),
+      hasFileUpload: !!fileData,
       oldData
     });
 

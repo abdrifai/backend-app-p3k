@@ -116,7 +116,8 @@ export class DataP3kRepository {
       take,
       include: {
         unorInduk: true,
-        arsipSkPensiun: true
+        arsipSkPensiun: true,
+        arsipSkCpns: true
       },
       orderBy: {
         createdAt: 'desc'
@@ -434,6 +435,7 @@ export class DataP3kRepository {
       include: {
         unorInduk: true,
         arsipSkPensiun: true,
+        arsipSkCpns: true,
         riwayatKontrak: {
           where: { isDeleted: false },
           include: { arsipKontrak: true },

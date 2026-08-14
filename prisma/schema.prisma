@@ -128,6 +128,19 @@ model ArsipSkPensiun {
   @@map("arsip_sk_pensiun")
 }
 
+model ArsipSkCpns {
+  id        String    @id @default(uuid())
+  nomorSk   String    @unique
+  tanggalSk String?
+  fileUrl   String?
+  isDeleted Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  dataP3k   DataP3k[]
+
+  @@map("arsip_sk_cpns")
+}
+
 model RefUnor {
   id        String    @id @default(uuid())
   nama      String    @unique
@@ -210,12 +223,14 @@ model DataP3k {
   flagIkd               String?
   statusPensiun         String?              @default("AKTIF")
   arsipSkPensiunId      String?
+  arsipSkCpnsId         String?
   isDeleted             Boolean              @default(false)
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
   unorIndukId           String?
   editedById            String?
   arsipSkPensiun        ArsipSkPensiun?      @relation(fields: [arsipSkPensiunId], references: [id])
+  arsipSkCpns           ArsipSkCpns?         @relation(fields: [arsipSkCpnsId], references: [id])
   editedBy              User?                @relation("TaskEditor", fields: [editedById], references: [id])
   unorInduk             RefUnor?             @relation(fields: [unorIndukId], references: [id])
   riwayatKontrak        RiwayatKontrak[]
@@ -224,6 +239,7 @@ model DataP3k {
   usulanPerpanjangan    UsulanPerpanjangan[]
 
   @@index([arsipSkPensiunId], map: "data_p3k_arsipSkPensiunId_fkey")
+  @@index([arsipSkCpnsId], map: "data_p3k_arsipSkCpnsId_fkey")
   @@index([editedById], map: "data_p3k_editedById_fkey")
   @@index([unorIndukId], map: "data_p3k_unorIndukId_fkey")
   @@map("data_p3k")
