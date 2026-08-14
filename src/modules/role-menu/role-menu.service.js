@@ -50,25 +50,37 @@ export class RoleMenuService {
   }
 
   /**
-   * Get allowed menus & submenus for a given user's role
+   * Get allowed menus & submenus for a given user's role(s)
    */
-  static async getMyMenus(role) {
-    const normalizedRole = String(role || 'user').toLowerCase();
-    
-    // Admin always gets all menus unless explicitly overridden
-    const dbPermissions = await RoleMenuRepository.findByRole(normalizedRole);
-    
-    let allowedKeys = new Set();
-    
-    if (dbPermissions.length > 0) {
-      dbPermissions.forEach(p => {
-        if (p.isAllowed) allowedKeys.add(p.menuKey);
-      });
+  static async getMyMenus(roleOrRoles) {
+    let roles = [];
+    if (Array.isArray(roleOrRoles)) {
+      roles = roleOrRoles.map(r => String(r).toLowerCase().trim()).filter(Boolean);
     } else {
-      // Use defaults
-      const defaults = DEFAULT_PERMISSIONS[normalizedRole] || 
-        (normalizedRole === 'admin' ? MENU_CATALOG.map(m => m.key) : DEFAULT_PERMISSIONS.user);
-      defaults.forEach(k => allowedKeys.add(k));
+      roles = String(roleOrRoles || 'user').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
+    }
+    if (roles.length === 0) roles = ['user'];
+
+    let allowedKeys = new Set();
+    const isAdmin = roles.some(r => ['admin', 'admin_utama', 'superadmin'].includes(r));
+
+    if (isAdmin) {
+      // Full access for admin
+      MENU_CATALOG.forEach(m => allowedKeys.add(m.key));
+    } else {
+      // Union permissions across all assigned roles
+      for (const r of roles) {
+        const dbPermissions = await RoleMenuRepository.findByRole(r);
+        if (dbPermissions.length > 0) {
+          dbPermissions.forEach(p => {
+            if (p.isAllowed) allowedKeys.add(p.menuKey);
+          });
+        } else {
+          // Use defaults for this role
+          const defaults = DEFAULT_PERMISSIONS[r] || DEFAULT_PERMISSIONS.user;
+          defaults.forEach(k => allowedKeys.add(k));
+        }
+      }
     }
 
     // Filter catalog
@@ -76,7 +88,8 @@ export class RoleMenuService {
     const allowedPaths = allowedCatalog.filter(m => m.path).map(m => m.path);
 
     return {
-      role: normalizedRole,
+      role: roles.join(','),
+      roles,
       allowedKeys: Array.from(allowedKeys),
       allowedPaths,
       menus: allowedCatalog

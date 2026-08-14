@@ -31,7 +31,9 @@ export class RoleMenuRepository {
 
     const set = new Set(['admin', 'user', 'pensiun']);
     userRoles.forEach(u => {
-      if (u.role) set.add(u.role.toLowerCase());
+      if (u.role) {
+        u.role.toLowerCase().split(',').map(r => r.trim()).filter(Boolean).forEach(r => set.add(r));
+      }
     });
 
     return Array.from(set).sort();

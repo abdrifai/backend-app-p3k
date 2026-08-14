@@ -33,8 +33,8 @@ export class RoleMenuController {
    *         description: Berhasil mengambil menu user
    */
   static getMyMenus = asyncHandler(async (req, res) => {
-    const userRole = req.user?.role || 'user';
-    const result = await RoleMenuService.getMyMenus(userRole);
+    const userRoles = req.user?.roles || req.user?.role || 'user';
+    const result = await RoleMenuService.getMyMenus(userRoles);
     res.status(200).json({
       success: true,
       message: 'Berhasil mengambil menu pengguna',

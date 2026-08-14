@@ -3,6 +3,27 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import userRepository from './user.repository.js';
 import { sendPasswordResetEmail } from '../../utils/email.service.js';
+function normalizeRoles(data) {
+  let roles = [];
+  if (Array.isArray(data.roles) && data.roles.length > 0) {
+    roles = data.roles.map(r => String(r).toLowerCase().trim()).filter(Boolean);
+  } else if (data.role) {
+    roles = String(data.role).toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
+  }
+  if (roles.length === 0) roles = ['user'];
+  return Array.from(new Set(roles));
+}
+
+function formatUser(user) {
+  if (!user) return null;
+  const roles = String(user.role || 'user').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
+  return {
+    ...user,
+    roles,
+    role: roles.join(',')
+  };
+}
+
 class UserService {
   async register(data) {
     // Check if ACTIVE email exists
@@ -21,6 +42,9 @@ class UserService {
       throw error;
     }
 
+    const roles = normalizeRoles(data);
+    const roleString = roles.join(',');
+
     // Check if SOFT-DELETED user exists with this username or email
     const softDeleted = await userRepository.findSoftDeletedUser(data.username, data.email);
     if (softDeleted) {
@@ -32,7 +56,8 @@ class UserService {
           username: data.username,
           email: data.email,
           namaLengkap: softDeleted.namaLengkap || data.namaLengkap,
-          role: softDeleted.role || data.role
+          role: softDeleted.role || roleString,
+          roles: String(softDeleted.role || roleString).toLowerCase().split(',').map(r => r.trim()).filter(Boolean)
         }
       };
     }
@@ -43,10 +68,15 @@ class UserService {
 
     // Create user
     try {
-      return await userRepository.create({
-        ...data,
+      const createPayload = {
+        username: data.username,
+        email: data.email,
+        namaLengkap: data.namaLengkap || '',
+        role: roleString,
         password: hashedPassword
-      });
+      };
+      const created = await userRepository.create(createPayload);
+      return formatUser(created);
     } catch (err) {
       if (err.code === 'P2002') {
         const error = new Error('Username or email is already registered');
@@ -66,7 +96,14 @@ class UserService {
       delete updateData.password;
     }
 
-    return await userRepository.reactivateUser(id, updateData);
+    if (payload.roles !== undefined || payload.role !== undefined) {
+      const roles = normalizeRoles(payload);
+      updateData.role = roles.join(',');
+      delete updateData.roles;
+    }
+
+    const reactivated = await userRepository.reactivateUser(id, updateData);
+    return formatUser(reactivated);
   }
 
   async login(username, password) {
@@ -86,9 +123,16 @@ class UserService {
       throw error;
     }
 
+    const userRoles = String(user.role || 'user').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
+
     // Generate JWT
     const token = jwt.sign(
-      { id: user.id },
+      { 
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        roles: userRoles
+      },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
@@ -100,6 +144,7 @@ class UserService {
         email: user.email,
         namaLengkap: user.namaLengkap,
         role: user.role,
+        roles: userRoles,
         foto: user.foto
       },
       token
@@ -164,7 +209,7 @@ class UserService {
       error.statusCode = 404;
       throw error;
     }
-    return user;
+    return formatUser(user);
   }
 
   async getAllUsers({ page = 1, limit = 10, search = '', status = 'active' }) {
@@ -174,7 +219,7 @@ class UserService {
     const { data, total } = await userRepository.findAll({ skip, take, search, status });
 
     return {
-      data,
+      data: data.map(formatUser),
       meta: {
         total,
         page: isAll ? 1 : page,
@@ -195,7 +240,11 @@ class UserService {
     const updateData = {};
     if (payload.namaLengkap !== undefined) updateData.namaLengkap = payload.namaLengkap;
     if (payload.email !== undefined) updateData.email = payload.email;
-    if (payload.role !== undefined) updateData.role = payload.role;
+    
+    if (payload.roles !== undefined || payload.role !== undefined) {
+      const roles = normalizeRoles(payload);
+      updateData.role = roles.join(',');
+    }
 
     if (payload.password) {
       const salt = await bcrypt.genSalt(10);
@@ -203,7 +252,8 @@ class UserService {
     }
 
     try {
-      return await userRepository.update(id, updateData);
+      const updated = await userRepository.update(id, updateData);
+      return formatUser(updated);
     } catch (err) {
       if (err.code === 'P2002') {
         const error = new Error('Email or username is already registered');

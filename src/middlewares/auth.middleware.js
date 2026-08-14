@@ -32,7 +32,11 @@ export const authenticate = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'The user belonging to this token does no longer exist.' });
     }
 
-    req.user = user;
+    const userRoles = String(user.role || 'user').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
+    req.user = {
+      ...user,
+      roles: userRoles
+    };
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
@@ -43,13 +47,22 @@ export const authenticate = async (req, res, next) => {
 };
 
 export const authorize = (...roles) => {
-  const allowed = roles.map(r => String(r).toLowerCase());
+  const allowed = roles.map(r => String(r).toLowerCase().trim());
   return (req, res, next) => {
-    const userRole = String(req.user?.role || '').toLowerCase();
-    if (!req.user || !allowed.includes(userRole)) {
+    if (!req.user) {
       return res.status(403).json({ 
         success: false, 
-        message: `User role ${req.user?.role} is not authorized to access this route`
+        message: 'Not authorized to access this route' 
+      });
+    }
+
+    const userRoles = req.user.roles || String(req.user.role || '').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
+    const isAuthorized = userRoles.some(r => allowed.includes(r));
+
+    if (!isAuthorized) {
+      return res.status(403).json({ 
+        success: false, 
+        message: `User roles [${userRoles.join(', ')}] are not authorized to access this route`
       });
     }
     next();
