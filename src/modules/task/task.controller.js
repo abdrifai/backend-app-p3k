@@ -12,7 +12,7 @@ class TaskController {
       throw err;
     }
 
-    const result = await taskService.autoAssign(value.userIds, value.amountPerUser);
+    const result = await taskService.autoAssign(value.userIds, value.amountPerUser, value.kegiatan);
     
     res.status(200).json({
       success: true,
@@ -29,7 +29,7 @@ class TaskController {
       throw err;
     }
 
-    const result = await taskService.manualAssign(value.assignments);
+    const result = await taskService.manualAssign(value.assignments, value.kegiatan);
 
     res.status(200).json({
       success: true,
