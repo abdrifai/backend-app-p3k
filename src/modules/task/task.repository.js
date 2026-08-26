@@ -299,8 +299,9 @@ class TaskRepository {
    * - If no kegiatan: count ALL AKTIF employees (total pool size)
    */
   async getUnassignedCount(kegiatan = '') {
+    const trimmedKegiatan = (kegiatan || '').trim();
     // No kegiatan selected → show total pool of active employees
-    if (!kegiatan) {
+    if (!trimmedKegiatan) {
       return await prisma.dataP3k.count({
         where: { statusPensiun: 'AKTIF', isDeleted: false }
       });
@@ -308,7 +309,7 @@ class TaskRepository {
 
     // Specific kegiatan → exclude employees already assigned to this kegiatan
     const assignedRecords = await prisma.taskPeremajaan.findMany({
-      where: { isDeleted: false, kegiatan: kegiatan },
+      where: { isDeleted: false, kegiatan: trimmedKegiatan },
       select: { dataP3kId: true }
     });
     const assignedIds = assignedRecords.map(r => r.dataP3kId);
