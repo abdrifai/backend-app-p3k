@@ -317,5 +317,54 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
       recentUsulan
     };
   }
+
+  /**
+   * Get daily work recap for users/operators on contract renewals
+   */
+  static async getKinerjaHarian({ date, startDate, endDate, userId, status } = {}) {
+    const where = { isDeleted: false };
+
+    // Date filtering: filter by createdAt (or fallback range)
+    let start, end;
+    if (startDate && endDate) {
+      start = new Date(`${startDate}T00:00:00.000Z`);
+      end = new Date(`${endDate}T23:59:59.999Z`);
+      where.createdAt = { gte: start, lte: end };
+    } else if (date) {
+      start = new Date(`${date}T00:00:00.000Z`);
+      end = new Date(`${date}T23:59:59.999Z`);
+      where.createdAt = { gte: start, lte: end };
+    }
+
+    if (userId) {
+      where.editedById = userId;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    const records = await prisma.usulanPerpanjangan.findMany({
+      where,
+      select: {
+        id: true,
+        status: true,
+        editedById: true,
+        editedBy: {
+          select: {
+            id: true,
+            username: true,
+            namaLengkap: true,
+            role: true
+          }
+        }
+      }
+    });
+
+    return {
+      records
+    };
+  }
 }
+
 

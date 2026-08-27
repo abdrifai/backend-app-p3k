@@ -22,5 +22,6 @@ router.delete('/usulan/:id', PerpanjanganController.deleteUsulan);
 router.delete('/usulan/:id/approved', authenticate, authorize('admin', 'ADMIN', 'Admin'), PerpanjanganController.deleteApprovedUsulan);
 router.get('/next-contract-number/:nipBaru', authenticate, PerpanjanganController.getNextContractNumber);
 router.get('/dashboard-stats', authenticate, PerpanjanganController.getDashboardStats);
+router.get('/kinerja-harian', authenticate, PerpanjanganController.getKinerjaHarian);
 
 export const perpanjanganRoutes = router;

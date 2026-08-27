@@ -822,5 +822,78 @@ export class PerpanjanganService {
       recentUsulan: raw.recentUsulan
     };
   }
+
+  /**
+   * Daily user performance recap for contract renewals
+   */
+  static async getKinerjaHarian({ date, startDate, endDate, userId, status } = {}) {
+    const raw = await PerpanjanganRepository.getKinerjaHarian({ date, startDate, endDate, userId, status });
+
+    const totalDikerjakan = raw.records.length;
+    let pendingCount = 0;
+    let approvedCount = 0;
+    let srikandiCount = 0;
+    let selesaiCount = 0;
+    let rejectedCount = 0;
+
+    // Grouping by User
+    const userMap = new Map();
+
+    for (const rec of raw.records) {
+      if (rec.status === 'PENDING') pendingCount++;
+      else if (rec.status === 'APPROVED') approvedCount++;
+      else if (rec.status === 'UPLOAD_SRIKANDI') srikandiCount++;
+      else if (rec.status === 'SELESAI') selesaiCount++;
+      else if (rec.status === 'REJECTED') rejectedCount++;
+
+      const userKey = rec.editedById || (rec.editedBy ? rec.editedBy.id : 'unassigned');
+      if (!userMap.has(userKey)) {
+        userMap.set(userKey, {
+          userId: userKey,
+          namaLengkap: rec.editedBy?.namaLengkap || rec.editedBy?.username || 'Sistem / Tidak Diketahui',
+          username: rec.editedBy?.username || '',
+          role: rec.editedBy?.role || '',
+          foto: rec.editedBy?.foto || null,
+          total: 0,
+          pending: 0,
+          approved: 0,
+          srikandi: 0,
+          selesai: 0,
+          rejected: 0
+        });
+      }
+
+      const uItem = userMap.get(userKey);
+      uItem.total++;
+      if (rec.status === 'PENDING') uItem.pending++;
+      else if (rec.status === 'APPROVED') uItem.approved++;
+      else if (rec.status === 'UPLOAD_SRIKANDI') uItem.srikandi++;
+      else if (rec.status === 'SELESAI') uItem.selesai++;
+      else if (rec.status === 'REJECTED') uItem.rejected++;
+    }
+
+    const byUser = Array.from(userMap.values()).sort((a, b) => b.total - a.total);
+
+    return {
+      filter: {
+        date: date || null,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        userId: userId || null,
+        status: status || null
+      },
+      summary: {
+        totalDikerjakan,
+        pendingCount,
+        approvedCount,
+        srikandiCount,
+        selesaiCount,
+        rejectedCount,
+        activeUserCount: byUser.length
+      },
+      byUser
+    };
+  }
 }
+
 

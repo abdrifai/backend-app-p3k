@@ -469,5 +469,47 @@ export class PerpanjanganController {
       data
     });
   });
+
+  /**
+   * @swagger
+   * /api/v1/perpanjangan/kinerja-harian:
+   *   get:
+   *     tags: [Perpanjangan Kontrak]
+   *     summary: Ambil rekap kinerja pengerjaan usulan perpanjangan user per hari
+   *     parameters:
+   *       - in: query
+   *         name: date
+   *         schema: { type: string }
+   *         description: Filter tanggal tertentu (YYYY-MM-DD)
+   *       - in: query
+   *         name: startDate
+   *         schema: { type: string }
+   *         description: Tanggal mulai (YYYY-MM-DD)
+   *       - in: query
+   *         name: endDate
+   *         schema: { type: string }
+   *         description: Tanggal selesai (YYYY-MM-DD)
+   *       - in: query
+   *         name: userId
+   *         schema: { type: string }
+   *         description: Filter user pembuat
+   *       - in: query
+   *         name: status
+   *         schema: { type: string }
+   *         description: Filter status usulan
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil rekap kinerja harian user
+   */
+  static getKinerjaHarian = asyncHandler(async (req, res) => {
+    const { date, startDate, endDate, userId, status } = req.query;
+    const data = await PerpanjanganService.getKinerjaHarian({ date, startDate, endDate, userId, status });
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil rekap kinerja harian user',
+      data
+    });
+  });
 }
+
 
