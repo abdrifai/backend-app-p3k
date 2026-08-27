@@ -74,14 +74,7 @@ export class DataP3kRepository {
     }
 
     if (statusPensiun) {
-      if (search && statusPensiun === 'AKTIF') {
-        // If searching, we allow both AKTIF and PENSIUN for better UX
-        where.AND.push({
-          statusPensiun: { in: ['AKTIF', 'PENSIUN'] }
-        });
-      } else {
-        where.AND.push({ statusPensiun });
-      }
+      where.AND.push({ statusPensiun });
     }
 
     if (tmtCpns) {

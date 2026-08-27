@@ -2,6 +2,7 @@ import 'dotenv/config';
 import app from './src/app.js';
 import logger from './src/config/logger.js';
 import prisma from './src/config/database.js';
+import initScheduler from './src/config/scheduler.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -15,6 +16,9 @@ const startServer = async () => {
     app.listen(PORT, () => {
       logger.info(`Server is running in ${process.env.NODE_ENV || 'development'} mode on http://localhost:${PORT}`);
       logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
+
+      // Inisialisasi scheduler backup otomatis
+      initScheduler();
     });
   } catch (error) {
     logger.error('Failed to start the server: ', error);
