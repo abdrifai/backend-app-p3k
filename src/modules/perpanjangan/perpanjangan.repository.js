@@ -69,7 +69,7 @@ export class PerpanjanganRepository {
               id: true, nipBaru: true, nama: true, gelarDepan: true,
               gelarBelakang: true, jabatanNama: true, unorNama: true,
               mkTahun: true, mkBulan: true, tmtCpns: true,
-              golAkhirNama: true, golAwalNama: true,
+              golAkhirNama: true, golAwalNama: true, statusPensiun: true,
               unorInduk: { select: { nama: true } }
             }
           },
@@ -100,7 +100,7 @@ export class PerpanjanganRepository {
             golAkhirNama: true, golAwalNama: true, pendidikanNama: true,
             tahunLulus: true, alamat: true, mkBulan: true,
             nomorSkCpns: true, tanggalSkCpns: true, tmtCpns: true,
-            lokasiKerjaNama: true, mkTahun: true, 
+            lokasiKerjaNama: true, mkTahun: true, statusPensiun: true,
             unorInduk: { select: { nama: true } }
           }
         },
