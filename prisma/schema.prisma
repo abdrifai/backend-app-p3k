@@ -24,6 +24,7 @@ model User {
   tasks               TaskPeremajaan[]     @relation("PeremajaanAssignmentUser")
   usulanTasks         TaskUsulan[]         @relation("UsulanAssignmentUser")
   usulanEditedTasks   UsulanPerpanjangan[] @relation("UsulanEditor")
+  rekapKinerja        RekapKinerjaHarian[]
 
   @@map("users")
 }
@@ -453,4 +454,25 @@ model RoleMenuPermission {
   @@map("role_menu_permissions")
 }
 
+model RekapKinerjaHarian {
+  id          String   @id @default(uuid())
+  tanggal     DateTime @db.Date
+  userId      String
+  namaLengkap String
+  username    String
+  role        String   @default("")
+  pending     Int      @default(0)
+  approved    Int      @default(0)
+  srikandi    Int      @default(0)
+  selesai     Int      @default(0)
+  rejected    Int      @default(0)
+  total       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([tanggal, userId])
+  @@index([tanggal])
+  @@map("rekap_kinerja_harian")
+}

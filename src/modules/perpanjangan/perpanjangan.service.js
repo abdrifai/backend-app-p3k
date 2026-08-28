@@ -3,6 +3,7 @@ import path from 'path';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { PerpanjanganRepository } from './perpanjangan.repository.js';
+import KinerjaSnapshotService from './kinerja-snapshot.service.js';
 import { DataP3kRepository } from '../data-p3k/data-p3k.repository.js';
 import { KontrakRepository } from '../kontrak/kontrak.repository.js';
 import { GajiService } from '../gaji/gaji.service.js';
@@ -824,64 +825,75 @@ export class PerpanjanganService {
   }
 
   /**
-   * Daily user performance recap for contract renewals
+   * Daily user performance recap — cache-first strategy.
+   * Hari ini → live query. Tanggal lampau → baca dari cache tabel.
+   * Jika cache belum ada untuk tanggal lampau → live query + simpan cache (fallback).
    */
-  static async getKinerjaHarian({ date, startDate, endDate, userId, status } = {}) {
-    const raw = await PerpanjanganRepository.getKinerjaHarian({ date, startDate, endDate, userId, status });
+  static async getKinerjaHarian({ date } = {}) {
+    const todayStr = (() => {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    })();
 
-    const totalDikerjakan = raw.records.length;
-    let pendingCount = 0;
-    let approvedCount = 0;
-    let srikandiCount = 0;
-    let selesaiCount = 0;
-    let rejectedCount = 0;
+    const targetDate = date || todayStr;
+    const isToday = targetDate === todayStr;
+    let byUser;
+    let fromCache = false;
 
-    // Grouping by User
-    const userMap = new Map();
-
-    for (const rec of raw.records) {
-      if (rec.status === 'PENDING') pendingCount++;
-      else if (rec.status === 'APPROVED') approvedCount++;
-      else if (rec.status === 'UPLOAD_SRIKANDI') srikandiCount++;
-      else if (rec.status === 'SELESAI') selesaiCount++;
-      else if (rec.status === 'REJECTED') rejectedCount++;
-
-      const userKey = rec.editedById || (rec.editedBy ? rec.editedBy.id : 'unassigned');
-      if (!userMap.has(userKey)) {
-        userMap.set(userKey, {
-          userId: userKey,
-          namaLengkap: rec.editedBy?.namaLengkap || rec.editedBy?.username || 'Sistem / Tidak Diketahui',
-          username: rec.editedBy?.username || '',
-          role: rec.editedBy?.role || '',
-          foto: rec.editedBy?.foto || null,
-          total: 0,
-          pending: 0,
-          approved: 0,
-          srikandi: 0,
-          selesai: 0,
-          rejected: 0
-        });
+    if (!isToday) {
+      // Tanggal lampau: coba baca dari cache dulu
+      const cached = await KinerjaSnapshotService.getCachedByDate(targetDate);
+      if (cached) {
+        byUser = cached;
+        fromCache = true;
       }
-
-      const uItem = userMap.get(userKey);
-      uItem.total++;
-      if (rec.status === 'PENDING') uItem.pending++;
-      else if (rec.status === 'APPROVED') uItem.approved++;
-      else if (rec.status === 'UPLOAD_SRIKANDI') uItem.srikandi++;
-      else if (rec.status === 'SELESAI') uItem.selesai++;
-      else if (rec.status === 'REJECTED') uItem.rejected++;
     }
 
-    const byUser = Array.from(userMap.values()).sort((a, b) => b.total - a.total);
+    if (!byUser) {
+      // Live query (hari ini atau fallback cache belum ada)
+      const raw = await PerpanjanganRepository.getKinerjaHarian({ date: targetDate });
+      const userMap = new Map();
+
+      for (const rec of raw.records) {
+        const userKey = rec.editedById || (rec.editedBy?.id ?? 'unassigned');
+        if (!userMap.has(userKey)) {
+          userMap.set(userKey, {
+            userId: userKey,
+            namaLengkap: rec.editedBy?.namaLengkap || rec.editedBy?.username || 'Tidak Diketahui',
+            username: rec.editedBy?.username || '',
+            role: rec.editedBy?.role || '',
+            total: 0, pending: 0, approved: 0, srikandi: 0, selesai: 0, rejected: 0
+          });
+        }
+        const u = userMap.get(userKey);
+        u.total++;
+        if (rec.status === 'PENDING') u.pending++;
+        else if (rec.status === 'APPROVED') u.approved++;
+        else if (rec.status === 'UPLOAD_SRIKANDI') u.srikandi++;
+        else if (rec.status === 'SELESAI') u.selesai++;
+        else if (rec.status === 'REJECTED') u.rejected++;
+      }
+
+      byUser = Array.from(userMap.values()).sort((a, b) => b.total - a.total);
+
+      // Jika tanggal lampau dan cache belum ada → simpan otomatis (fallback)
+      if (!isToday && byUser.length > 0) {
+        KinerjaSnapshotService.snapshotForDate(targetDate).catch(() => {});
+      }
+    }
+
+    // Hitung summary dari byUser
+    const totalDikerjakan = byUser.reduce((s, u) => s + u.total, 0);
+    const pendingCount = byUser.reduce((s, u) => s + u.pending, 0);
+    const approvedCount = byUser.reduce((s, u) => s + u.approved, 0);
+    const srikandiCount = byUser.reduce((s, u) => s + u.srikandi, 0);
+    const selesaiCount = byUser.reduce((s, u) => s + u.selesai, 0);
+    const rejectedCount = byUser.reduce((s, u) => s + u.rejected, 0);
 
     return {
-      filter: {
-        date: date || null,
-        startDate: startDate || null,
-        endDate: endDate || null,
-        userId: userId || null,
-        status: status || null
-      },
       summary: {
         totalDikerjakan,
         pendingCount,
@@ -891,7 +903,12 @@ export class PerpanjanganService {
         rejectedCount,
         activeUserCount: byUser.length
       },
-      byUser
+      byUser,
+      meta: {
+        tanggal: targetDate,
+        isToday,
+        fromCache
+      }
     };
   }
 }
