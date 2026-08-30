@@ -29,3 +29,22 @@ export const updateDataP3kSchema = Joi.object({
   lokasiKerjaNama: Joi.string().optional().allow(''),
 }).unknown(true);
 
+export const mappingUnorQuerySchema = Joi.object({
+  search: Joi.string().optional().allow(''),
+  unorNama: Joi.string().optional().allow(''),
+  refUnorId: Joi.string().uuid().optional().allow('', null),
+  isMappingMode: Joi.boolean().optional().default(false),
+  unorStatus: Joi.string().valid('ALL', 'MAPPED', 'UNMAPPED').default('ALL'),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(200).default(50),
+});
+
+export const updateMappingUnorSchema = Joi.object({
+  unorIndukId: Joi.string().uuid().allow(null, '').required(),
+});
+
+export const bulkMappingUnorSchema = Joi.object({
+  ids: Joi.array().items(Joi.string().uuid()).min(1).required(),
+  unorIndukId: Joi.string().uuid().allow(null, '').required(),
+});
+

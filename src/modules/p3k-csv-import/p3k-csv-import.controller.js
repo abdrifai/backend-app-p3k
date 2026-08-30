@@ -185,4 +185,93 @@ export class P3kCsvImportController {
       meta: result.meta
     });
   });
+
+  /**
+   * @swagger
+   * /api/v1/p3k-csv-import/compare-unor:
+   *   get:
+   *     tags: [P3K CSV Import]
+   *     summary: Rekap perbandingan per unit kerja antara Data Utama dan Import SIASN
+   *     parameters:
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil data rekap
+   *       500:
+   *         description: Server error
+   */
+  static getCompareUnorSummary = asyncHandler(async (req, res) => {
+    const search = req.query.search || '';
+    const data = await P3kCsvImportService.getCompareUnorSummary({ search });
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil rekap perbandingan per unit kerja',
+      data
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/p3k-csv-import/compare-unor/detail:
+   *   get:
+   *     tags: [P3K CSV Import]
+   *     summary: Detail perbandingan pegawai per unit kerja
+   *     parameters:
+   *       - in: query
+   *         name: unitKerja
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: statusFilter
+   *         schema:
+   *           type: string
+   *           enum: [ALL, MATCH, HANYA_IMPORT, HANYA_UTAMA, BEDA_UNOR]
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil detail perbandingan
+   *       400:
+   *         description: Parameter unitKerja tidak ada
+   *       500:
+   *         description: Server error
+   */
+  static getCompareUnorDetail = asyncHandler(async (req, res) => {
+    const unitKerja = req.query.unitKerja || '';
+    const statusFilter = req.query.statusFilter || 'ALL';
+    const search = req.query.search || '';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+
+    const result = await P3kCsvImportService.getCompareUnorDetail({
+      unitKerja,
+      statusFilter,
+      search,
+      page,
+      limit
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Berhasil mengambil detail perbandingan untuk unit kerja: ${unitKerja}`,
+      summary: result.summary,
+      data: result.data,
+      meta: result.meta
+    });
+  });
 }

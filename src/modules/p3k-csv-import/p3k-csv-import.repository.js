@@ -2,10 +2,19 @@ import prisma from '../../config/database.js';
 
 export class P3kCsvImportRepository {
   static async bulkCreate(data) {
-    return prisma.p3kCsvImport.createMany({
-      data,
-      skipDuplicates: true
-    });
+    const CHUNK_SIZE = 500;
+    let totalInserted = 0;
+
+    for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+      const chunk = data.slice(i, i + CHUNK_SIZE);
+      const res = await prisma.p3kCsvImport.createMany({
+        data: chunk,
+        skipDuplicates: true
+      });
+      totalInserted += (res.count || 0);
+    }
+
+    return { count: totalInserted };
   }
 
   static async deleteAll() {
@@ -184,5 +193,199 @@ export class P3kCsvImportRepository {
       label: r.unorNama || 'Tidak Diketahui',
       count: r._count.unorNama
     }));
+  }
+
+  static async getCompareUnorSummary({ search } = {}) {
+    // 1. Ambil seluruh master unit kerja dari ref_unor
+    let refUnorWhere = { isDeleted: false };
+    if (search) {
+      refUnorWhere.nama = { contains: search };
+    }
+
+    const refUnors = await prisma.refUnor.findMany({
+      where: refUnorWhere,
+      select: { id: true, nama: true },
+      orderBy: { nama: 'asc' }
+    });
+
+    // 2. Agregasi data_p3k (Data Utama - Aktif) yang berelasi dengan ref_unor
+    const utamaCounts = await prisma.$queryRawUnsafe(`
+      SELECT 
+        ru.id AS unorId,
+        COUNT(DISTINCT d.id) AS totalUtama
+      FROM ref_unor ru
+      LEFT JOIN data_p3k d ON (d.unorIndukId = ru.id OR d.unorNama LIKE CONCAT('%', ru.nama, '%')) AND d.isDeleted = false AND d.statusPensiun = 'AKTIF'
+      WHERE ru.isDeleted = false
+      GROUP BY ru.id
+    `);
+
+    // 3. Agregasi p3k_csv_imports (Data Pembanding SIASN)
+    const importCounts = await prisma.$queryRawUnsafe(`
+      SELECT 
+        ru.id AS unorId,
+        COUNT(DISTINCT i.id) AS totalImport
+      FROM ref_unor ru
+      LEFT JOIN p3k_csv_imports i ON (i.unorInduk LIKE CONCAT('%', ru.nama, '%') OR i.unorNama LIKE CONCAT('%', ru.nama, '%')) AND i.isDeleted = false
+      WHERE ru.isDeleted = false
+      GROUP BY ru.id
+    `);
+
+    const utamaMap = new Map(utamaCounts.map(r => [r.unorId, Number(r.totalUtama || 0)]));
+    const importMap = new Map(importCounts.map(r => [r.unorId, Number(r.totalImport || 0)]));
+
+    const summary = refUnors.map(ru => {
+      const totalUtama = utamaMap.get(ru.id) || 0;
+      const totalImport = importMap.get(ru.id) || 0;
+      const selisih = totalImport - totalUtama;
+      return {
+        unorId: ru.id,
+        unorNama: ru.nama,
+        totalUtama,
+        totalImport,
+        selisih,
+        status: selisih === 0 ? 'SINKRON' : selisih > 0 ? 'LEBIH_DI_SIASN' : 'LEBIH_DI_UTAMA'
+      };
+    });
+
+    return summary;
+  }
+
+  static async getCompareUnorDetail({ unitKerja, statusFilter = 'ALL', search = '', skip = 0, take = 50 }) {
+    // 1. Ambil data pegawai aktif dari data_p3k (Data Utama sebagai basis data)
+    const utamaList = await prisma.dataP3k.findMany({
+      where: {
+        isDeleted: false,
+        statusPensiun: 'AKTIF',
+        OR: [
+          { unorInduk: { nama: { contains: unitKerja } } },
+          { unorNama: { contains: unitKerja } }
+        ]
+      },
+      include: {
+        unorInduk: { select: { id: true, nama: true } }
+      },
+      orderBy: { nama: 'asc' }
+    });
+
+    // 2. Ambil data pembanding dari p3k_csv_imports
+    // Ambil NIP yang ada di Data Utama
+    const utamaNips = utamaList.map(u => u.nipBaru);
+    const matchedImports = await prisma.p3kCsvImport.findMany({
+      where: {
+        nipBaru: { in: utamaNips },
+        isDeleted: false
+      }
+    });
+
+    // Ambil juga pegawai yang ada di import SIASN untuk unit kerja ini tapi belum ada di Data Utama
+    const extraImports = await prisma.p3kCsvImport.findMany({
+      where: {
+        isDeleted: false,
+        OR: [
+          { unorInduk: { contains: unitKerja } },
+          { unorNama: { contains: unitKerja } }
+        ],
+        nipBaru: { notIn: utamaNips }
+      }
+    });
+
+    const importMap = new Map();
+    for (const i of [...matchedImports, ...extraImports]) {
+      importMap.set(i.nipBaru, i);
+    }
+
+    const compared = [];
+
+    // Prioritas 1: Pegawai dari Data Utama (Basis Data)
+    for (const u of utamaList) {
+      const imp = importMap.get(u.nipBaru);
+
+      let statusSync = 'MATCH';
+      if (!imp) {
+        statusSync = 'HANYA_UTAMA';
+      } else {
+        const uUnor = String(u.unorNama || '').trim().toLowerCase();
+        const iUnor = String(imp.unorNama || '').trim().toLowerCase();
+        if (uUnor && iUnor && uUnor !== iUnor) {
+          statusSync = 'BEDA_UNOR';
+        } else {
+          statusSync = 'MATCH';
+        }
+      }
+
+      compared.push({
+        nipBaru: u.nipBaru,
+        namaUtama: u.nama,
+        gelarDepanUtama: u.gelarDepan,
+        gelarBelakangUtama: u.gelarBelakang,
+        unorUtama: u.unorNama || u.unorInduk?.nama || '-',
+        jabatanUtama: u.jabatanNama || '-',
+
+        adaDiImport: !!imp,
+        namaImport: imp?.nama || null,
+        gelarDepanImport: imp?.gelarDepan || null,
+        gelarBelakangImport: imp?.gelarBelakang || null,
+        unorImport: imp?.unorNama || imp?.unorInduk || null,
+        jabatanImport: imp?.jabatanNama || null,
+
+        statusSync
+      });
+    }
+
+    // Prioritas 2: Pegawai yang ada di SIASN tapi belum masuk Data Utama
+    for (const imp of extraImports) {
+      compared.push({
+        nipBaru: imp.nipBaru,
+        namaUtama: null,
+        gelarDepanUtama: null,
+        gelarBelakangUtama: null,
+        unorUtama: null,
+        jabatanUtama: null,
+
+        adaDiImport: true,
+        namaImport: imp.nama,
+        gelarDepanImport: imp.gelarDepan,
+        gelarBelakangImport: imp.gelarBelakang,
+        unorImport: imp.unorNama || imp.unorInduk || '-',
+        jabatanImport: imp.jabatanNama || '-',
+
+        statusSync: 'HANYA_IMPORT'
+      });
+    }
+
+    const summary = {
+      totalPegawai: compared.length,
+      totalUtama: utamaList.length,
+      totalImport: matchedImports.length + extraImports.length,
+      totalMatch: compared.filter(r => r.statusSync === 'MATCH').length,
+      totalHanyaUtama: compared.filter(r => r.statusSync === 'HANYA_UTAMA').length,
+      totalBedaUnor: compared.filter(r => r.statusSync === 'BEDA_UNOR').length,
+      totalHanyaImport: extraImports.length
+    };
+
+    let filtered = compared;
+    if (statusFilter && statusFilter !== 'ALL') {
+      filtered = filtered.filter(r => r.statusSync === statusFilter);
+    }
+
+    if (search) {
+      const s = search.toLowerCase();
+      filtered = filtered.filter(r =>
+        (r.nipBaru && r.nipBaru.toLowerCase().includes(s)) ||
+        (r.namaUtama && r.namaUtama.toLowerCase().includes(s)) ||
+        (r.namaImport && r.namaImport.toLowerCase().includes(s)) ||
+        (r.jabatanUtama && r.jabatanUtama.toLowerCase().includes(s)) ||
+        (r.jabatanImport && r.jabatanImport.toLowerCase().includes(s))
+      );
+    }
+
+    const totalFiltered = filtered.length;
+    const paginated = filtered.slice(skip, skip + take);
+
+    return {
+      summary,
+      data: paginated,
+      totalFiltered
+    };
   }
 }

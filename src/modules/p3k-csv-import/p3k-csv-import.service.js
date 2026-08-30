@@ -3,19 +3,50 @@ import { Readable } from 'stream';
 import prisma from '../../config/database.js';
 import { P3kCsvImportRepository } from './p3k-csv-import.repository.js';
 
+const ALLOWED_FIELDS = new Set([
+  'nipLama', 'nipBaru', 'pnsId', 'nama', 'gelarDepan', 'gelarBelakang',
+  'tempatLahirId', 'tempatLahirNama', 'tanggalLahir', 'jenisKelamin',
+  'agamaId', 'agamaNama', 'jenisKawinId', 'jenisKawinNama', 'nik',
+  'nomorHp', 'email', 'emailGov', 'alamat', 'npwpNomor', 'bpjs',
+  'jenisPegawaiId', 'jenisPegawaiNama', 'kedudukanHukumId', 'kedudukanHukumNama',
+  'statusCpnsPns', 'kartuAsnVirtual', 'nomorSkCpns', 'tanggalSkCpns', 'tmtCpns',
+  'nomorSkPns', 'tanggalSkPns', 'tmtPns', 'golAwalId', 'golAwalNama',
+  'golAkhirId', 'golAkhirNama', 'tmtGolongan', 'mkTahun', 'mkBulan',
+  'jenisJabatanId', 'jenisJabatanNama', 'jabatanId', 'jabatanNama', 'tmtJabatan',
+  'tingkatPendidikanId', 'tingkatPendidikanNama', 'pendidikanId', 'pendidikanNama',
+  'tahunLulus', 'kpknId', 'kpknNama', 'lokasiKerjaId', 'lokasiKerjaNama',
+  'unorId', 'unorNama', 'instansiIndukId', 'instansiIndukNama',
+  'instansiKerjaId', 'instansiKerjaNama', 'satuanKerjaIndukId', 'satuanKerjaIndukNama',
+  'satuanKerjaKerjaId', 'satuanKerjaKerjaNama', 'isValidNik', 'namaSekolah',
+  'flagIkd', 'unorInduk'
+]);
+
 export class P3kCsvImportService {
   static async processCsv(fileBuffer) {
     return new Promise((resolve, reject) => {
       const results = [];
+      const seenNips = new Set();
+
+      // Auto detect separator
+      const sampleText = fileBuffer.slice(0, 4096).toString('utf-8');
+      const firstLine = sampleText.split(/\r?\n/)[0] || '';
+      let separator = '|';
+      if (firstLine.includes('|')) {
+        separator = '|';
+      } else if (firstLine.includes(';')) {
+        separator = ';';
+      } else if (firstLine.includes(',')) {
+        separator = ',';
+      }
+
       const bufferStream = new Readable();
       bufferStream.push(fileBuffer);
       bufferStream.push(null);
 
       bufferStream
         .pipe(csv({
-          separator: '|',
+          separator,
           mapHeaders: ({ header }) => {
-            // Trim whitespace
             let key = header.trim();
             // Convert to camelCase (e.g., "PNS ID" -> "pnsId", "NIP LAMA" -> "nipLama")
             return key
@@ -24,21 +55,38 @@ export class P3kCsvImportService {
           }
         }))
         .on('data', (data) => {
-          // Menghilangkan tanda petik satu / backtick di NIP_BARU dan NIP_LAMA jika ada
+          // Bersihkan NIP & NIK
           if (data.nipBaru) {
-            data.nipBaru = data.nipBaru.replace(/['`]/g, '');
+            data.nipBaru = String(data.nipBaru).replace(/['`\s]/g, '').trim();
           }
           if (data.nipLama) {
-            data.nipLama = data.nipLama.replace(/['`]/g, '');
+            data.nipLama = String(data.nipLama).replace(/['`\s]/g, '').trim();
           }
-          results.push(data);
+          if (data.pnsId) {
+            data.pnsId = String(data.pnsId).replace(/['`\s]/g, '').trim();
+          }
+
+          // Skip baris tanpa NIP atau NIP duplikat di file yang sama
+          if (!data.nipBaru || !data.nama || seenNips.has(data.nipBaru)) {
+            return;
+          }
+          seenNips.add(data.nipBaru);
+
+          // Filter hanya field yang valid sesuai schema Prisma
+          const cleaned = {};
+          for (const key of Object.keys(data)) {
+            if (ALLOWED_FIELDS.has(key)) {
+              cleaned[key] = data[key] ? String(data[key]).trim() : null;
+            }
+          }
+
+          if (cleaned.nipBaru) {
+            results.push(cleaned);
+          }
         })
         .on('end', async () => {
           try {
-            console.log('Parsed CSV Results Length:', results.length);
-            if (results.length > 0) {
-               console.log('Sample data:', results[0]);
-            }
+            console.log('Parsed CSV Results Count:', results.length);
 
             if (results.length === 0) {
               const err = new Error('File CSV kosong atau tidak memiliki data yang valid');
@@ -46,7 +94,7 @@ export class P3kCsvImportService {
               return reject(err);
             } 
 
-            // Hapus semua data import lama sebelum memasukkan data baru
+            // Hapus data import sebelumnya sebelum memasukkan yang baru
             await P3kCsvImportRepository.deleteAll();
 
             const inserted = await P3kCsvImportRepository.bulkCreate(results);
@@ -164,5 +212,37 @@ export class P3kCsvImportService {
 
   static async getLastImportTime() {
     return P3kCsvImportRepository.getLastImportTime();
+  }
+
+  static async getCompareUnorSummary({ search = '' } = {}) {
+    return P3kCsvImportRepository.getCompareUnorSummary({ search });
+  }
+
+  static async getCompareUnorDetail({ unitKerja, statusFilter = 'ALL', search = '', page = 1, limit = 50 }) {
+    if (!unitKerja) {
+      const err = new Error('Nama unit kerja wajib diisi');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const skip = (page - 1) * limit;
+    const { summary, data, totalFiltered } = await P3kCsvImportRepository.getCompareUnorDetail({
+      unitKerja,
+      statusFilter,
+      search,
+      skip,
+      take: limit
+    });
+
+    return {
+      summary,
+      data,
+      meta: {
+        total: totalFiltered,
+        page,
+        limit,
+        totalPages: Math.ceil(totalFiltered / limit) || 1
+      }
+    };
   }
 }

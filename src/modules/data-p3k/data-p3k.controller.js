@@ -1,6 +1,14 @@
 import { DataP3kService } from './data-p3k.service.js';
 import { asyncHandler } from '../../middlewares/error.middleware.js';
-import { setPensiunSchema, updatePensiunSchema, revertPensiunSchema, updateDataP3kSchema } from './data-p3k.validation.js';
+import {
+  setPensiunSchema,
+  updatePensiunSchema,
+  revertPensiunSchema,
+  updateDataP3kSchema,
+  mappingUnorQuerySchema,
+  updateMappingUnorSchema,
+  bulkMappingUnorSchema
+} from './data-p3k.validation.js';
 
 export class DataP3kController {
   /**
@@ -496,6 +504,147 @@ export class DataP3kController {
     res.status(200).json({
       success: true,
       message: 'Berhasil mengambil profil data pegawai P3K',
+      data: result
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/data-p3k/mapping-unor:
+   *   get:
+   *     tags: [Data P3K - Mapping Unor]
+   *     summary: Ambil daftar data pegawai untuk mapping Unor Induk
+   *     parameters:
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: unorNama
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: unorStatus
+   *         schema:
+   *           type: string
+   *           enum: [ALL, MAPPED, UNMAPPED]
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil data mapping unor
+   */
+  static getMappingUnor = asyncHandler(async (req, res) => {
+    const { error, value } = mappingUnorQuerySchema.validate(req.query);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message,
+        data: null
+      });
+    }
+
+    const result = await DataP3kService.getMappingUnor(value);
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil data mapping unit kerja pegawai',
+      data: result.data,
+      meta: result.meta,
+      summary: result.summary
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/data-p3k/{id}/mapping-unor:
+   *   patch:
+   *     tags: [Data P3K - Mapping Unor]
+   *     summary: Perbarui pemetaan Unor Induk pegawai tertentu
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               unorIndukId:
+   *                 type: string
+   *                 format: uuid
+   *     responses:
+   *       200:
+   *         description: Pemetaan Unor Induk berhasil diperbarui
+   */
+  static updateMappingUnor = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { error, value } = updateMappingUnorSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message,
+        data: null
+      });
+    }
+
+    const updated = await DataP3kService.updateMappingUnor(id, value.unorIndukId, req.user?.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Pemetaan Unit Kerja Induk berhasil diperbarui',
+      data: updated
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/data-p3k/bulk-mapping-unor:
+   *   post:
+   *     tags: [Data P3K - Mapping Unor]
+   *     summary: Pemetaan Unor Induk massal untuk banyak pegawai sekaligus
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               ids:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *               unorIndukId:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Pemetaan massal berhasil
+   */
+  static bulkUpdateMappingUnor = asyncHandler(async (req, res) => {
+    const { error, value } = bulkMappingUnorSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message,
+        data: null
+      });
+    }
+
+    const result = await DataP3kService.bulkUpdateMappingUnor(value.ids, value.unorIndukId, req.user?.id);
+
+    res.status(200).json({
+      success: true,
+      message: `Berhasil memetakan ${result.count} pegawai ke Unit Kerja Induk yang dipilih`,
       data: result
     });
   });

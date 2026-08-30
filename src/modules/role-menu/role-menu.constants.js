@@ -68,6 +68,15 @@ export const MENU_CATALOG = [
     group: 'Data Kepegawaian',
     order: 2.5
   },
+  {
+    key: 'mapping-unor',
+    label: 'Mapping Unor',
+    path: '/data-p3k/mapping-unor',
+    icon: 'ri-git-merge-line',
+    parentKey: 'data-utama',
+    group: 'Data Kepegawaian',
+    order: 2.6
+  },
 
   // 3. Perpanjangan PK (Dropdown)
   {
@@ -230,6 +239,15 @@ export const MENU_CATALOG = [
     group: 'Pengaturan - Import CSV',
     order: 6.3
   },
+  {
+    key: 'setting-import-per-unit-kerja',
+    label: 'Per Unit Kerja',
+    path: '/setting/import-per-unit-kerja',
+    icon: 'ri-building-line',
+    parentKey: 'pengaturan',
+    group: 'Pengaturan - Import CSV',
+    order: 6.4
+  },
   // Sub-menu Pengaturan: Manajemen Tugas
   {
     key: 'setting-task-peremajaan',
@@ -328,6 +346,7 @@ export const DEFAULT_PERMISSIONS = {
     'data-p3k',
     'statistik-p3k',
     'perbedaan-data',
+    'mapping-unor',
     'perpanjangan-pk',
     'perpanjangan-dashboard',
     'perpanjangan-usulan',

@@ -1,6 +1,7 @@
 import { DataP3kRepository } from './data-p3k.repository.js';
 import TaskRepository from '../task/task.repository.js';
 import activityLogService from '../activity-log/activityLog.service.js';
+import prisma from '../../config/database.js';
 
 export class DataP3kService {
   static async syncDataFromImport() {
@@ -232,5 +233,78 @@ export class DataP3kService {
       throw error;
     }
     return dataP3k;
+  }
+
+  static async getMappingUnor({ search, unorNama, refUnorId, isMappingMode = false, unorStatus = 'ALL', page = 1, limit = 50 }) {
+    const skip = (page - 1) * limit;
+    const { data, total, summary } = await DataP3kRepository.getMappingUnor({
+      search,
+      unorNama,
+      refUnorId,
+      isMappingMode,
+      unorStatus,
+      skip,
+      take: limit
+    });
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1
+      },
+      summary
+    };
+  }
+
+  static async updateMappingUnor(id, unorIndukId, userId) {
+    if (unorIndukId) {
+      const ref = await prisma.refUnor.findFirst({
+        where: { id: unorIndukId, isDeleted: false }
+      });
+      if (!ref) {
+        const error = new Error('Unit Kerja (RefUnor) tidak valid atau telah dihapus');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const updated = await DataP3kRepository.updateMappingUnor(id, unorIndukId);
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'UPDATE_MAPPING_UNOR', 'DataP3k', updated.nipBaru, {
+        unorIndukId,
+        unorNama: updated.unorNama,
+        unorIndukNama: updated.unorInduk?.nama || null
+      });
+    }
+
+    return updated;
+  }
+
+  static async bulkUpdateMappingUnor(ids, unorIndukId, userId) {
+    if (unorIndukId) {
+      const ref = await prisma.refUnor.findFirst({
+        where: { id: unorIndukId, isDeleted: false }
+      });
+      if (!ref) {
+        const error = new Error('Unit Kerja (RefUnor) tidak valid atau telah dihapus');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const result = await DataP3kRepository.bulkUpdateMappingUnor(ids, unorIndukId);
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'BULK_UPDATE_MAPPING_UNOR', 'DataP3k', 'BULK', {
+        count: result.count,
+        unorIndukId
+      });
+    }
+
+    return result;
   }
 }

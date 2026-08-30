@@ -25,7 +25,7 @@ class BackupController {
     res.status(200).json({
       success: true,
       message: 'Statistik backup',
-      data:    { db: dbStats, archive: archiveStats },
+      data: { db: dbStats, archive: archiveStats },
     });
   });
 
@@ -50,7 +50,7 @@ class BackupController {
    *         description: mysqldump failed
    */
   downloadSql = asyncHandler(async (req, res) => {
-    const sql      = await backupService.generateSql();
+    const sql = await backupService.generateSql();
     const filename = `backup_db_p3k_${new Date().toISOString().slice(0, 10)}.sql`;
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -86,8 +86,8 @@ class BackupController {
    *               format: binary
    */
   downloadArchive = asyncHandler(async (req, res) => {
-    const folders  = Array.isArray(req.body?.folders) ? req.body.folders : ['final-pk', 'pensiun-sk'];
-    const zipBuf   = await backupService.generateArchiveZip(folders);
+    const folders = Array.isArray(req.body?.folders) ? req.body.folders : ['final-pk', 'pensiun-sk'];
+    const zipBuf = await backupService.generateArchiveZip(folders);
     const filename = `backup_arsip_p3k_${new Date().toISOString().slice(0, 10)}.zip`;
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

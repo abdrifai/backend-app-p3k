@@ -143,14 +143,35 @@ model ArsipSkCpns {
 }
 
 model RefUnor {
-  id        String    @id @default(uuid())
-  nama      String    @unique
-  isDeleted Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  dataP3ks  DataP3k[]
+  id           String        @id @default(uuid())
+  nama         String        @unique
+  isDeleted    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  dataP3ks     DataP3k[]
+  mappingUnors MappingUnor[]
 
   @@map("ref_unor")
+}
+
+model MappingUnor {
+  id          String    @id @default(uuid())
+  nipBaru     String    @unique
+  dataP3kId   String?   @unique
+  unorAsal    String?
+  refUnorId   String
+  refUnorNama String?
+  keterangan  String?
+  isDeleted   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  dataP3k     DataP3k?  @relation(fields: [dataP3kId], references: [id], onDelete: Cascade)
+  refUnor     RefUnor   @relation(fields: [refUnorId], references: [id], onDelete: Restrict)
+
+  @@index([refUnorId])
+  @@index([unorAsal])
+  @@map("mapping_unor")
 }
 
 model DataP3k {
@@ -238,6 +259,7 @@ model DataP3k {
   tasksPeremajaan       TaskPeremajaan[]
   tasksUsulan           TaskUsulan[]
   usulanPerpanjangan    UsulanPerpanjangan[]
+  mappingUnor           MappingUnor?
 
   @@index([arsipSkPensiunId], map: "data_p3k_arsipSkPensiunId_fkey")
   @@index([arsipSkCpnsId], map: "data_p3k_arsipSkCpnsId_fkey")

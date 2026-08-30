@@ -34,13 +34,19 @@ export class DataP3kRepository {
       return 0; // Everything is already synced
     }
 
-    // Insert new data
-    const result = await prisma.dataP3k.createMany({
-      data: dataToInsert,
-      skipDuplicates: true, // Double safety
-    });
+    // Insert new data in chunks of 500
+    const CHUNK_SIZE = 500;
+    let totalInserted = 0;
+    for (let i = 0; i < dataToInsert.length; i += CHUNK_SIZE) {
+      const chunk = dataToInsert.slice(i, i + CHUNK_SIZE);
+      const res = await prisma.dataP3k.createMany({
+        data: chunk,
+        skipDuplicates: true, // Double safety
+      });
+      totalInserted += (res.count || 0);
+    }
 
-    return result.count;
+    return totalInserted;
   }
 
   static _buildWhereClause({ search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }) {
@@ -708,5 +714,253 @@ export class DataP3kRepository {
       where: { nipBaru },
       data: payload
     });
+  }
+
+  static async getMappingUnor({ search, unorNama, refUnorId, isMappingMode = false, unorStatus = 'ALL', skip = 0, take = 50 }) {
+    const where = {
+      isDeleted: false,
+      statusPensiun: 'AKTIF'
+    };
+
+    if (unorStatus === 'MAPPED') {
+      where.unorIndukId = { not: null };
+    } else if (unorStatus === 'UNMAPPED') {
+      where.unorIndukId = null;
+    }
+
+    if (isMappingMode && refUnorId) {
+      // Tampilkan berdasarkan Unor Mapping (Unor Induk hasil mapping)
+      where.unorIndukId = refUnorId;
+    } else if (unorNama) {
+      // Tampilkan berdasarkan Unor Asli di Data Utama (data_p3k.unorNama)
+      where.unorNama = { contains: unorNama };
+    }
+
+    if (search) {
+      const searchCondition = [
+        { nipBaru: { contains: search } },
+        { nama: { contains: search } },
+        { unorNama: { contains: search } },
+        { jabatanNama: { contains: search } }
+      ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: searchCondition }];
+        delete where.OR;
+      } else {
+        where.OR = searchCondition;
+      }
+    }
+
+    const summaryWhereCondition = isMappingMode && refUnorId
+      ? { unorIndukId: refUnorId }
+      : (unorNama ? { unorNama: { contains: unorNama } } : {});
+
+    const [data, total, totalMapped, totalUnmapped] = await Promise.all([
+      prisma.dataP3k.findMany({
+        where,
+        select: {
+          id: true,
+          nipBaru: true,
+          nama: true,
+          gelarDepan: true,
+          gelarBelakang: true,
+          jabatanNama: true,
+          unorNama: true,
+          unorIndukId: true,
+          unorInduk: {
+            select: { id: true, nama: true }
+          },
+          updatedAt: true
+        },
+        orderBy: [
+          { unorNama: 'asc' },
+          { nama: 'asc' }
+        ],
+        skip,
+        take
+      }),
+      prisma.dataP3k.count({ where }),
+      prisma.dataP3k.count({
+        where: {
+          isDeleted: false,
+          statusPensiun: 'AKTIF',
+          unorIndukId: { not: null },
+          ...summaryWhereCondition
+        }
+      }),
+      prisma.dataP3k.count({
+        where: {
+          isDeleted: false,
+          statusPensiun: 'AKTIF',
+          unorIndukId: null,
+          ...summaryWhereCondition
+        }
+      })
+    ]);
+
+    return {
+      data,
+      total,
+      summary: {
+        totalPegawai: totalMapped + totalUnmapped,
+        totalMapped,
+        totalUnmapped
+      }
+    };
+  }
+
+  static async updateMappingUnor(id, unorIndukId) {
+    return prisma.$transaction(async (tx) => {
+      const p3k = await tx.dataP3k.findUnique({
+        where: { id },
+        select: { id: true, nipBaru: true, unorNama: true }
+      });
+
+      if (!p3k) {
+        const err = new Error('Data pegawai tidak ditemukan');
+        err.statusCode = 404;
+        throw err;
+      }
+
+      let refUnor = null;
+      if (unorIndukId) {
+        refUnor = await tx.refUnor.findUnique({
+          where: { id: unorIndukId }
+        });
+      }
+
+      // Update data_p3k
+      const updated = await tx.dataP3k.update({
+        where: { id },
+        data: {
+          unorIndukId: unorIndukId || null
+        },
+        include: {
+          unorInduk: { select: { id: true, nama: true } },
+          mappingUnor: true
+        }
+      });
+
+      // Upsert or remove from mapping_unor table
+      if (unorIndukId && refUnor) {
+        await tx.mappingUnor.upsert({
+          where: { nipBaru: p3k.nipBaru },
+          create: {
+            nipBaru: p3k.nipBaru,
+            dataP3kId: p3k.id,
+            unorAsal: p3k.unorNama || '',
+            refUnorId: refUnor.id,
+            refUnorNama: refUnor.nama,
+            isDeleted: false
+          },
+          update: {
+            dataP3kId: p3k.id,
+            unorAsal: p3k.unorNama || '',
+            refUnorId: refUnor.id,
+            refUnorNama: refUnor.nama,
+            isDeleted: false
+          }
+        });
+      } else {
+        await tx.mappingUnor.deleteMany({
+          where: { nipBaru: p3k.nipBaru }
+        });
+      }
+
+      return updated;
+    });
+  }
+
+  static async bulkUpdateMappingUnor(ids, unorIndukId) {
+    return prisma.$transaction(async (tx) => {
+      let refUnor = null;
+      if (unorIndukId) {
+        refUnor = await tx.refUnor.findUnique({
+          where: { id: unorIndukId }
+        });
+      }
+
+      const p3kList = await tx.dataP3k.findMany({
+        where: { id: { in: ids }, isDeleted: false },
+        select: { id: true, nipBaru: true, unorNama: true }
+      });
+
+      // Update data_p3k table
+      const updatedCount = await tx.dataP3k.updateMany({
+        where: { id: { in: ids }, isDeleted: false },
+        data: {
+          unorIndukId: unorIndukId || null
+        }
+      });
+
+      // Update mapping_unor table
+      if (unorIndukId && refUnor) {
+        for (const p3k of p3kList) {
+          await tx.mappingUnor.upsert({
+            where: { nipBaru: p3k.nipBaru },
+            create: {
+              nipBaru: p3k.nipBaru,
+              dataP3kId: p3k.id,
+              unorAsal: p3k.unorNama || '',
+              refUnorId: refUnor.id,
+              refUnorNama: refUnor.nama,
+              isDeleted: false
+            },
+            update: {
+              dataP3kId: p3k.id,
+              unorAsal: p3k.unorNama || '',
+              refUnorId: refUnor.id,
+              refUnorNama: refUnor.nama,
+              isDeleted: false
+            }
+          });
+        }
+      } else {
+        const nips = p3kList.map(p => p.nipBaru);
+        await tx.mappingUnor.deleteMany({
+          where: { nipBaru: { in: nips } }
+        });
+      }
+
+      return updatedCount;
+    });
+  }
+
+  static async syncAllExistingMappings() {
+    const existing = await prisma.dataP3k.findMany({
+      where: {
+        isDeleted: false,
+        unorIndukId: { not: null }
+      },
+      include: {
+        unorInduk: true
+      }
+    });
+
+    let count = 0;
+    for (const p of existing) {
+      if (p.unorInduk) {
+        await prisma.mappingUnor.upsert({
+          where: { nipBaru: p.nipBaru },
+          create: {
+            nipBaru: p.nipBaru,
+            dataP3kId: p.id,
+            unorAsal: p.unorNama || '',
+            refUnorId: p.unorInduk.id,
+            refUnorNama: p.unorInduk.nama,
+            isDeleted: false
+          },
+          update: {
+            dataP3kId: p.id,
+            unorAsal: p.unorNama || '',
+            refUnorId: p.unorInduk.id,
+            refUnorNama: p.unorInduk.nama,
+            isDeleted: false
+          }
+        });
+        count++;
+      }
+    }
+    return count;
   }
 }
