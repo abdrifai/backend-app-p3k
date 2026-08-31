@@ -76,11 +76,11 @@ class KinerjaSnapshotService {
    * Snapshot hari kemarin — dipanggil scheduler jam 01:00 WITA.
    */
   static async snapshotHariKemarin() {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yyyy = yesterday.getFullYear();
-    const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
-    const dd = String(yesterday.getDate()).padStart(2, '0');
+    const nowWita = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+    nowWita.setDate(nowWita.getDate() - 1);
+    const yyyy = nowWita.getFullYear();
+    const mm = String(nowWita.getMonth() + 1).padStart(2, '0');
+    const dd = String(nowWita.getDate()).padStart(2, '0');
     return KinerjaSnapshotService.snapshotForDate(`${yyyy}-${mm}-${dd}`);
   }
 
