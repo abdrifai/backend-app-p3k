@@ -16,6 +16,7 @@ router.post(
   P3kCsvImportController.uploadCsv
 );
 
+router.post('/sync-master', P3kCsvImportController.syncToMaster);
 router.get('/last-import-time', P3kCsvImportController.getLastImportTime);
 router.get('/statistics', P3kCsvImportController.getStatistics);
 router.get('/retirement', P3kCsvImportController.getRetirementReport);

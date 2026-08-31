@@ -388,4 +388,101 @@ export class P3kCsvImportRepository {
       totalFiltered
     };
   }
+
+  /**
+   * Sync all records from p3k_csv_imports to data_p3k (Master Full Waktu)
+   */
+  static async syncToDataP3kMaster(chunkSize = 500) {
+    const imports = await prisma.p3kCsvImport.findMany({
+      where: { isDeleted: false }
+    });
+
+    let syncedCount = 0;
+
+    for (let i = 0; i < imports.length; i += chunkSize) {
+      const chunk = imports.slice(i, i + chunkSize);
+      const masterRecords = chunk.map(r => ({
+        id: r.id,
+        pnsId: r.pnsId || r.nipBaru,
+        nipBaru: r.nipBaru,
+        nipLama: r.nipLama || null,
+        nama: r.nama,
+        gelarDepan: r.gelarDepan || null,
+        gelarBelakang: r.gelarBelakang || null,
+        tempatLahirId: r.tempatLahirId || null,
+        tempatLahirNama: r.tempatLahirNama || null,
+        tanggalLahir: r.tanggalLahir || null,
+        jenisKelamin: r.jenisKelamin || null,
+        agamaId: r.agamaId || null,
+        agamaNama: r.agamaNama || null,
+        jenisKawinId: r.jenisKawinId || null,
+        jenisKawinNama: r.jenisKawinNama || null,
+        nik: r.nik || null,
+        nomorHp: r.nomorHp || null,
+        email: r.email || null,
+        emailGov: r.emailGov || null,
+        alamat: r.alamat || null,
+        npwpNomor: r.npwpNomor || null,
+        bpjs: r.bpjs || null,
+        jenisPegawaiId: r.jenisPegawaiId || null,
+        jenisPegawaiNama: r.jenisPegawaiNama || null,
+        kedudukanHukumId: r.kedudukanHukumId || null,
+        kedudukanHukumNama: r.kedudukanHukumNama || null,
+        statusCpnsPns: r.statusCpnsPns || null,
+        kartuAsnVirtual: r.kartuAsnVirtual || null,
+        nomorSkCpns: r.nomorSkCpns || null,
+        tanggalSkCpns: r.tanggalSkCpns || null,
+        tmtCpns: r.tmtCpns || null,
+        nomorSkPns: r.nomorSkPns || null,
+        tanggalSkPns: r.tanggalSkPns || null,
+        tmtPns: r.tmtPns || null,
+        golAwalId: r.golAwalId || null,
+        golAwalNama: r.golAwalNama || null,
+        golAkhirId: r.golAkhirId || null,
+        golAkhirNama: r.golAkhirNama || null,
+        tmtGolongan: r.tmtGolongan || null,
+        mkTahun: r.mkTahun || null,
+        mkBulan: r.mkBulan || null,
+        jenisJabatanId: r.jenisJabatanId || null,
+        jenisJabatanNama: r.jenisJabatanNama || null,
+        jabatanId: r.jabatanId || null,
+        jabatanNama: r.jabatanNama || null,
+        tmtJabatan: r.tmtJabatan || null,
+        tingkatPendidikanId: r.tingkatPendidikanId || null,
+        tingkatPendidikanNama: r.tingkatPendidikanNama || null,
+        pendidikanId: r.pendidikanId || null,
+        pendidikanNama: r.pendidikanNama || null,
+        tahunLulus: r.tahunLulus || null,
+        kpknId: r.kpknId || null,
+        kpknNama: r.kpknNama || null,
+        lokasiKerjaId: r.lokasiKerjaId || null,
+        lokasiKerjaNama: r.lokasiKerjaNama || null,
+        unorId: r.unorId || null,
+        unorNama: r.unorNama || null,
+        unorIndukId: null, // manual mapping only
+        instansiIndukId: r.instansiIndukId || null,
+        instansiIndukNama: r.instansiIndukNama || null,
+        instansiKerjaId: r.instansiKerjaId || null,
+        instansiKerjaNama: r.instansiKerjaNama || null,
+        satuanKerjaIndukId: r.satuanKerjaIndukId || null,
+        satuanKerjaIndukNama: r.satuanKerjaIndukNama || null,
+        satuanKerjaKerjaId: r.satuanKerjaKerjaId || null,
+        satuanKerjaKerjaNama: r.satuanKerjaKerjaNama || null,
+        isValidNik: r.isValidNik || null,
+        namaSekolah: r.namaSekolah || null,
+        flagIkd: r.flagIkd || null,
+        statusPensiun: 'AKTIF',
+        isDeleted: false
+      }));
+
+      const res = await prisma.dataP3k.createMany({
+        data: masterRecords,
+        skipDuplicates: true
+      });
+      syncedCount += (res.count || 0);
+    }
+
+    return { totalParsed: imports.length, syncedCount };
+  }
 }
+

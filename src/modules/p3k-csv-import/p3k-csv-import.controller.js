@@ -274,4 +274,18 @@ export class P3kCsvImportController {
       meta: result.meta
     });
   });
+
+  /**
+   * Sync all imported data from p3k_csv_imports to data_p3k
+   */
+  static syncToMaster = asyncHandler(async (req, res) => {
+    const result = await P3kCsvImportService.syncToDataP3kMaster();
+
+    res.status(200).json({
+      success: true,
+      message: `Berhasil memindahkan ${result.syncedCount} data ke Data Utama (data_p3k)`,
+      data: result
+    });
+  });
 }
+

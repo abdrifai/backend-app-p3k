@@ -245,4 +245,9 @@ export class P3kCsvImportService {
       }
     };
   }
+
+  static async syncToDataP3kMaster() {
+    return P3kCsvImportRepository.syncToDataP3kMaster();
+  }
 }
+
