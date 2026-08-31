@@ -199,6 +199,91 @@ model P3kParuhWaktu {
   @@map("p3k_paruh_waktu")
 }
 
+model DataP3kParuhWaktu {
+  id                    String      @id @default(uuid())
+  pnsId                 String?     @unique
+  nipBaru               String      @unique
+  nipLama               String?
+  nama                  String
+  gelarDepan            String?
+  gelarBelakang         String?
+  tempatLahirId         String?
+  tempatLahirNama       String?
+  tanggalLahir          String?
+  jenisKelamin          String?
+  agamaId               String?
+  agamaNama             String?
+  jenisKawinId          String?
+  jenisKawinNama        String?
+  nik                   String?
+  nomorHp               String?
+  email                 String?
+  emailGov              String?
+  alamat                String?     @db.Text
+  npwpNomor             String?
+  bpjs                  String?
+  jenisPegawaiId        String?
+  jenisPegawaiNama      String?
+  kedudukanHukumId      String?
+  kedudukanHukumNama    String?
+  statusCpnsPns         String?
+  kartuAsnVirtual       String?
+  nomorSkCpns           String?
+  tanggalSkCpns         String?
+  tmtCpns               String?
+  nomorSkPns            String?
+  tanggalSkPns          String?
+  tmtPns                String?
+  golAwalId             String?
+  golAwalNama           String?
+  golAkhirId            String?
+  golAkhirNama          String?
+  tmtGolongan           String?
+  mkTahun               String?
+  mkBulan               String?
+  jenisJabatanId        String?
+  jenisJabatanNama      String?
+  jabatanId             String?
+  jabatanNama           String?
+  tmtJabatan            String?
+  tingkatPendidikanId   String?
+  tingkatPendidikanNama String?
+  pendidikanId          String?
+  pendidikanNama        String?
+  tahunLulus            String?
+  kpknId                String?
+  kpknNama              String?
+  lokasiKerjaId         String?
+  lokasiKerjaNama       String?
+  unorId                String?
+  unorNama              String?
+  unorIndukId           String?
+  unorInduk             RefUnor?    @relation(fields: [unorIndukId], references: [id])
+  instansiIndukId       String?
+  instansiIndukNama     String?
+  instansiKerjaId       String?
+  instansiKerjaNama     String?
+  satuanKerjaIndukId    String?
+  satuanKerjaIndukNama  String?
+  satuanKerjaKerjaId    String?
+  satuanKerjaKerjaNama  String?
+  isValidNik            String?
+  namaSekolah           String?
+  flagIkd               String?
+  eselonId              String?
+  eselonNama            String?
+  statusPensiun         String?     @default("AKTIF")
+  isDeleted             Boolean     @default(false)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@index([unorIndukId], map: "data_p3k_paruh_waktu_unorIndukId_fkey")
+  @@index([unorNama])
+  @@index([golAkhirNama])
+  @@index([nama])
+  @@map("data_p3k_paruh_waktu")
+}
+
 model ArsipSkPensiun {
   id        String    @id @default(uuid())
   nomorSk   String    @unique
@@ -226,13 +311,14 @@ model ArsipSkCpns {
 }
 
 model RefUnor {
-  id           String        @id @default(uuid())
-  nama         String        @unique
-  isDeleted    Boolean       @default(false)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  dataP3ks     DataP3k[]
-  mappingUnors MappingUnor[]
+  id                String              @id @default(uuid())
+  nama              String              @unique
+  isDeleted         Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  dataP3ks          DataP3k[]
+  mappingUnors      MappingUnor[]
+  dataP3kParuhWaktu DataP3kParuhWaktu[]
 
   @@map("ref_unor")
 }

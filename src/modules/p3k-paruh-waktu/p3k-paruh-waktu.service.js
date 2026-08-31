@@ -102,9 +102,13 @@ export class P3kParuhWaktuService {
 
             if (replaceAll) {
               await P3kParuhWaktuRepository.deleteAll();
+              await P3kParuhWaktuRepository.deleteAllMaster();
             }
 
             const insertedCount = await P3kParuhWaktuRepository.bulkCreate(results);
+
+            // Auto sync to data_p3k_paruh_waktu with auto Unor Induk matching
+            await P3kParuhWaktuRepository.syncToDataP3kParuhWaktu(results);
 
             return resolve({
               totalParsed: results.length,
@@ -119,6 +123,36 @@ export class P3kParuhWaktuService {
           reject(err);
         });
     });
+  }
+
+  /**
+   * Sync all records from p3k_paruh_waktu to data_p3k_paruh_waktu
+   */
+  static async syncAllToMaster() {
+    const allRecords = await P3kParuhWaktuRepository.findMany({ page: 1, limit: 100000 });
+    const count = await P3kParuhWaktuRepository.syncToDataP3kParuhWaktu(allRecords.data || []);
+    return { syncedCount: count };
+  }
+
+  /**
+   * Get paginated master data from data_p3k_paruh_waktu
+   */
+  static async getMasterData(params) {
+    return P3kParuhWaktuRepository.findMasterMany(params);
+  }
+
+  /**
+   * Update Unor Induk Mapping for single DataP3kParuhWaktu
+   */
+  static async updateMasterMappingUnor(id, unorIndukId) {
+    return P3kParuhWaktuRepository.updateMasterMappingUnor(id, unorIndukId);
+  }
+
+  /**
+   * Bulk Update Unor Induk Mapping for DataP3kParuhWaktu
+   */
+  static async bulkUpdateMasterMappingUnor(ids, unorIndukId) {
+    return P3kParuhWaktuRepository.bulkUpdateMasterMappingUnor(ids, unorIndukId);
   }
 
   /**
@@ -157,6 +191,7 @@ export class P3kParuhWaktuService {
    * Clear all imported data
    */
   static async clearAll() {
+    await P3kParuhWaktuRepository.deleteAllMaster();
     return P3kParuhWaktuRepository.deleteAll();
   }
 
@@ -167,3 +202,4 @@ export class P3kParuhWaktuService {
     return P3kParuhWaktuRepository.deleteById(id);
   }
 }
+

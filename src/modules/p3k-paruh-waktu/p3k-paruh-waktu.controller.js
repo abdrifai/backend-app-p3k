@@ -153,4 +153,97 @@ export class P3kParuhWaktuController {
       next(err);
     }
   }
+
+  /**
+   * Sync all imported data to data_p3k_paruh_waktu
+   */
+  static async syncToMaster(req, res, next) {
+    try {
+      const result = await P3kParuhWaktuService.syncAllToMaster();
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: `Berhasil memindahkan ${result.syncedCount} data ke data_p3k_paruh_waktu`
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Get master DataP3kParuhWaktu list
+   */
+  static async getMasterData(req, res, next) {
+    try {
+      const { error, value } = p3kParuhWaktuQuerySchema.validate(req.query);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          message: error.details[0].message
+        });
+      }
+
+      const result = await P3kParuhWaktuService.getMasterData(value);
+      return res.status(200).json({
+        success: true,
+        data: result.data,
+        pagination: result.pagination,
+        message: 'Data Master P3K Paruh Waktu berhasil diambil'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Update Unor Induk Mapping for a single record
+   */
+  static async updateMappingUnor(req, res, next) {
+    try {
+      const { id, unorIndukId } = req.body;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          message: 'ID data P3K Paruh Waktu wajib disertakan'
+        });
+      }
+
+      const result = await P3kParuhWaktuService.updateMasterMappingUnor(id, unorIndukId);
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Mapping Unit Kerja Induk berhasil diperbarui'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Bulk update Unor Induk Mapping
+   */
+  static async bulkUpdateMappingUnor(req, res, next) {
+    try {
+      const { ids, unorIndukId } = req.body;
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          message: 'Daftar ID data P3K Paruh Waktu wajib disertakan'
+        });
+      }
+
+      const result = await P3kParuhWaktuService.bulkUpdateMasterMappingUnor(ids, unorIndukId);
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: `Berhasil memperbarui mapping untuk ${result.count} data`
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
+

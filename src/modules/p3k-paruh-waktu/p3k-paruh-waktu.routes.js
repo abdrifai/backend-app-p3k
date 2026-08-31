@@ -13,6 +13,10 @@ const upload = multer({
 router.use(authenticate);
 
 router.post('/import', upload.single('file'), P3kParuhWaktuController.importCsv);
+router.post('/sync-master', P3kParuhWaktuController.syncToMaster);
+router.get('/master', P3kParuhWaktuController.getMasterData);
+router.put('/mapping-unor', P3kParuhWaktuController.updateMappingUnor);
+router.put('/bulk-mapping-unor', P3kParuhWaktuController.bulkUpdateMappingUnor);
 router.get('/filters', P3kParuhWaktuController.getFilters);
 router.get('/stats', P3kParuhWaktuController.getStats);
 router.delete('/clear', P3kParuhWaktuController.clearAll);
@@ -21,3 +25,4 @@ router.delete('/:id', P3kParuhWaktuController.deleteById);
 router.get('/', P3kParuhWaktuController.getData);
 
 export const p3kParuhWaktuRoutes = router;
+
