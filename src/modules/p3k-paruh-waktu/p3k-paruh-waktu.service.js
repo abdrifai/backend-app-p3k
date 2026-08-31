@@ -102,13 +102,12 @@ export class P3kParuhWaktuService {
 
             if (replaceAll) {
               await P3kParuhWaktuRepository.deleteAll();
-              await P3kParuhWaktuRepository.deleteAllMaster();
             }
 
             const insertedCount = await P3kParuhWaktuRepository.bulkCreate(results);
 
-            // Auto sync to data_p3k_paruh_waktu with auto Unor Induk matching
-            await P3kParuhWaktuRepository.syncToDataP3kParuhWaktu(results);
+            // Import hanya memasukkan ke tabel staging p3k_paruh_waktu.
+            // Pemindahan ke tabel data_p3k_paruh_waktu dilakukan manual via tombol.
 
             return resolve({
               totalParsed: results.length,
