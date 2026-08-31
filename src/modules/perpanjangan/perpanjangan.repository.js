@@ -319,16 +319,16 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
   }
 
   /**
-   * Get daily work recap for users/operators on contract renewals based on real user activities
+   * Get daily work recap for users/operators on contract renewals based on real user activities (WITA / UTC+8)
    */
   static async getKinerjaHarian({ date, startDate, endDate, userId, status } = {}) {
     let start, end;
     if (startDate && endDate) {
-      start = new Date(`${startDate}T00:00:00.000Z`);
-      end = new Date(`${endDate}T23:59:59.999Z`);
+      start = new Date(`${startDate}T00:00:00.000+08:00`);
+      end = new Date(`${endDate}T23:59:59.999+08:00`);
     } else if (date) {
-      start = new Date(`${date}T00:00:00.000Z`);
-      end = new Date(`${date}T23:59:59.999Z`);
+      start = new Date(`${date}T00:00:00.000+08:00`);
+      end = new Date(`${date}T23:59:59.999+08:00`);
     }
 
     const logWhere = {
@@ -378,10 +378,13 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
       return { records };
     }
 
-    // Fallback to legacy creation records if no activity logs exist for that date range
+    // Fallback to legacy creation/update records if no activity logs exist for that date range
     const legacyWhere = { isDeleted: false };
     if (start && end) {
-      legacyWhere.createdAt = { gte: start, lte: end };
+      legacyWhere.OR = [
+        { createdAt: { gte: start, lte: end } },
+        { updatedAt: { gte: start, lte: end } }
+      ];
     }
     if (userId) legacyWhere.editedById = userId;
     if (status) legacyWhere.status = status;
@@ -400,7 +403,8 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
             role: true
           }
         },
-        createdAt: true
+        createdAt: true,
+        updatedAt: true
       }
     });
 
