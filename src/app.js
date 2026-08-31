@@ -8,6 +8,7 @@ import swaggerSpec from './api-docs/swagger.js';
 import { globalErrorHandler, notFoundHandler } from './middlewares/error.middleware.js';
 import userRoutes from './modules/user/user.routes.js';
 import { p3kCsvImportRoutes } from './modules/p3k-csv-import/p3k-csv-import.routes.js';
+import { p3kParuhWaktuRoutes } from './modules/p3k-paruh-waktu/p3k-paruh-waktu.routes.js';
 import { dataP3kRoutes } from './modules/data-p3k/data-p3k.routes.js';
 import { refUnorRoutes } from './modules/ref-unor/ref-unor.routes.js';
 import taskRoutes from './modules/task/task.routes.js';
@@ -74,6 +75,7 @@ app.get('/', (req, res) => {
 app.use('/api/health', healthRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/v1/p3k-csv-import', p3kCsvImportRoutes);
+app.use('/api/v1/p3k-paruh-waktu', p3kParuhWaktuRoutes);
 app.use('/api/v1/data-p3k', dataP3kRoutes);
 app.use('/api/v1/ref-unor', refUnorRoutes);
 app.use('/api/tasks', taskRoutes);
