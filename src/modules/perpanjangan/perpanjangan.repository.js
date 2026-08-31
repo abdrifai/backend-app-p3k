@@ -319,33 +319,75 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
   }
 
   /**
-   * Get daily work recap for users/operators on contract renewals
+   * Get daily work recap for users/operators on contract renewals based on real user activities
    */
   static async getKinerjaHarian({ date, startDate, endDate, userId, status } = {}) {
-    const where = { isDeleted: false };
-
-    // Date filtering: filter by createdAt (or fallback range)
     let start, end;
     if (startDate && endDate) {
       start = new Date(`${startDate}T00:00:00.000Z`);
       end = new Date(`${endDate}T23:59:59.999Z`);
-      where.createdAt = { gte: start, lte: end };
     } else if (date) {
       start = new Date(`${date}T00:00:00.000Z`);
       end = new Date(`${date}T23:59:59.999Z`);
-      where.createdAt = { gte: start, lte: end };
     }
 
-    if (userId) {
-      where.editedById = userId;
+    const logWhere = {
+      ...(start && end ? { createdAt: { gte: start, lte: end } } : {}),
+      OR: [
+        { entityType: 'UsulanPerpanjangan' },
+        { entityType: 'TaskUsulan' },
+        { action: { in: ['CREATE_USULAN', 'APPROVE_USULAN', 'PROCESS_SRIKANDI', 'FINALIZE_USULAN', 'REJECT_USULAN', 'UPDATE_USULAN', 'DELETE_APPROVED_USULAN'] } }
+      ]
+    };
+    if (userId) logWhere.userId = userId;
+
+    const activityLogs = await prisma.activityLog.findMany({
+      where: logWhere,
+      include: {
+        user: {
+          select: { id: true, username: true, namaLengkap: true, role: true }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (activityLogs.length > 0) {
+      let records = activityLogs.map(log => {
+        let mappedStatus = 'PENDING';
+        if (log.action === 'APPROVE_USULAN') mappedStatus = 'APPROVED';
+        else if (log.action === 'PROCESS_SRIKANDI') mappedStatus = 'UPLOAD_SRIKANDI';
+        else if (log.action === 'FINALIZE_USULAN') mappedStatus = 'SELESAI';
+        else if (log.action === 'REJECT_USULAN') mappedStatus = 'REJECTED';
+        else if (log.action === 'CREATE_USULAN' || log.action === 'UPDATE_USULAN') mappedStatus = 'PENDING';
+        else if (log.action === 'COMPLETE_TASK' && log.entityType === 'TaskUsulan') mappedStatus = 'PENDING';
+
+        return {
+          id: log.id,
+          status: mappedStatus,
+          action: log.action,
+          editedById: log.userId,
+          editedBy: log.user,
+          createdAt: log.createdAt
+        };
+      });
+
+      if (status) {
+        records = records.filter(r => r.status === status);
+      }
+
+      return { records };
     }
 
-    if (status) {
-      where.status = status;
+    // Fallback to legacy creation records if no activity logs exist for that date range
+    const legacyWhere = { isDeleted: false };
+    if (start && end) {
+      legacyWhere.createdAt = { gte: start, lte: end };
     }
+    if (userId) legacyWhere.editedById = userId;
+    if (status) legacyWhere.status = status;
 
-    const records = await prisma.usulanPerpanjangan.findMany({
-      where,
+    const legacyRecords = await prisma.usulanPerpanjangan.findMany({
+      where: legacyWhere,
       select: {
         id: true,
         status: true,
@@ -357,13 +399,12 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
             namaLengkap: true,
             role: true
           }
-        }
+        },
+        createdAt: true
       }
     });
 
-    return {
-      records
-    };
+    return { records: legacyRecords };
   }
 }
 

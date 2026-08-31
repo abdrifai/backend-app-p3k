@@ -206,7 +206,7 @@ export class PerpanjanganController {
    *         description: Usulan berhasil di-update
    */
   static updateUsulan = asyncHandler(async (req, res) => {
-    const result = await PerpanjanganService.updateUsulan(req.params.id, req.body);
+    const result = await PerpanjanganService.updateUsulan(req.params.id, req.body, req.user?.id);
     res.status(200).json({
       success: true,
       message: 'Usulan berhasil diperbarui dan diajukan kembali.',
@@ -230,7 +230,7 @@ export class PerpanjanganController {
    *         description: Usulan disetujui & dokumen di-generate
    */
   static approveUsulan = asyncHandler(async (req, res) => {
-    const result = await PerpanjanganService.approveUsulan(req.params.id);
+    const result = await PerpanjanganService.approveUsulan(req.params.id, req.user?.id);
     res.status(200).json({
       success: true,
       message: 'Usulan perpanjangan kontrak disetujui.',
@@ -266,7 +266,7 @@ export class PerpanjanganController {
     if (error) {
       return res.status(400).json({ success: false, message: error.details[0].message, data: null });
     }
-    const result = await PerpanjanganService.rejectUsulan(req.params.id, value.alasanPenolakan);
+    const result = await PerpanjanganService.rejectUsulan(req.params.id, value.alasanPenolakan, req.user?.id);
     res.status(200).json({
       success: true,
       message: 'Usulan perpanjangan kontrak ditolak.',
@@ -394,7 +394,7 @@ export class PerpanjanganController {
     }
 
     const fileUrl = `/uploads/final-pk/${req.file.filename}`;
-    const result = await PerpanjanganService.uploadFinalDocument(req.params.id, fileUrl);
+    const result = await PerpanjanganService.uploadFinalDocument(req.params.id, fileUrl, req.user?.id);
 
     res.status(200).json({
       success: true,
@@ -419,7 +419,7 @@ export class PerpanjanganController {
    *         description: Status berhasil diubah ke UPLOAD_SRIKANDI
    */
   static processToSrikandi = asyncHandler(async (req, res) => {
-    const result = await PerpanjanganService.processToSrikandi(req.params.id);
+    const result = await PerpanjanganService.processToSrikandi(req.params.id, req.user?.id);
     res.status(200).json({
       success: true,
       message: 'Usulan berhasil diproses ke tahap Upload Srikandi.',

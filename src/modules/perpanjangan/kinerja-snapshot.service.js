@@ -1,7 +1,6 @@
-'use strict';
-
 import prisma from '../../config/database.js';
 import logger from '../../config/logger.js';
+import { PerpanjanganRepository } from './perpanjangan.repository.js';
 
 /**
  * KinerjaSnapshotService
@@ -13,25 +12,10 @@ class KinerjaSnapshotService {
    * @param {string} dateStr - Format YYYY-MM-DD
    */
   static async snapshotForDate(dateStr) {
-    const start = new Date(`${dateStr}T00:00:00.000Z`);
-    const end = new Date(`${dateStr}T23:59:59.999Z`);
-
     logger.info(`[KinerjaSnapshot] Mulai snapshot rekap untuk tanggal ${dateStr}`);
 
-    const records = await prisma.usulanPerpanjangan.findMany({
-      where: {
-        isDeleted: false,
-        createdAt: { gte: start, lte: end }
-      },
-      select: {
-        id: true,
-        status: true,
-        editedById: true,
-        editedBy: {
-          select: { id: true, username: true, namaLengkap: true, role: true }
-        }
-      }
-    });
+    const raw = await PerpanjanganRepository.getKinerjaHarian({ date: dateStr });
+    const records = raw.records || [];
 
     if (records.length === 0) {
       logger.info(`[KinerjaSnapshot] Tidak ada data untuk ${dateStr}, snapshot dilewati.`);

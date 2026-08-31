@@ -100,12 +100,18 @@ export class PerpanjanganService {
     // Mark task as completed if there's any pending task for this dataP3k
     if (userId) {
       await TaskUsulanRepository.completeTaskByDataP3kId(dataP3k.id, userId);
+      activityLogService.logActivity(userId, 'CREATE_USULAN', 'UsulanPerpanjangan', newUsulan.id, {
+        nipBaru: dataP3k.nipBaru,
+        namaPegawai: dataP3k.nama,
+        nomorKontrak,
+        status: 'PENDING'
+      });
     }
 
     return newUsulan;
   }
 
-  static async updateUsulan(id, { tanggalMulai, tanggalSelesai, keterangan, templateKontrakId, nomorKontrak, tanggalTtd, kontrakKe }) {
+  static async updateUsulan(id, { tanggalMulai, tanggalSelesai, keterangan, templateKontrakId, nomorKontrak, tanggalTtd, kontrakKe }, userId) {
     const usulan = await PerpanjanganRepository.findUsulanById(id);
     if (!usulan || usulan.isDeleted) {
       const error = new Error('Usulan tidak ditemukan');
@@ -137,7 +143,7 @@ export class PerpanjanganService {
       }
     }
 
-    return PerpanjanganRepository.updateUsulan(id, {
+    const updated = await PerpanjanganRepository.updateUsulan(id, {
       tanggalMulai,
       tanggalSelesai,
       keterangan,
@@ -148,9 +154,20 @@ export class PerpanjanganService {
       status: 'PENDING',
       alasanPenolakan: null
     });
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'UPDATE_USULAN', 'UsulanPerpanjangan', id, {
+        nipBaru: usulan.dataP3k?.nipBaru,
+        namaPegawai: usulan.dataP3k?.nama,
+        nomorKontrak: nomorKontrak || usulan.nomorKontrak,
+        status: 'PENDING'
+      });
+    }
+
+    return updated;
   }
 
-  static async approveUsulan(id) {
+  static async approveUsulan(id, userId) {
     const usulan = await PerpanjanganRepository.findUsulanById(id);
     if (!usulan || usulan.isDeleted) {
       const error = new Error('Usulan tidak ditemukan');
@@ -197,10 +214,19 @@ export class PerpanjanganService {
       golongan: templateData.golongan
     });
 
+    if (userId) {
+      activityLogService.logActivity(userId, 'APPROVE_USULAN', 'UsulanPerpanjangan', id, {
+        nipBaru: usulan.dataP3k?.nipBaru,
+        namaPegawai: usulan.dataP3k?.nama,
+        nomorKontrak: usulan.nomorKontrak,
+        status: 'APPROVED'
+      });
+    }
+
     return updated;
   }
 
-  static async rejectUsulan(id, alasanPenolakan) {
+  static async rejectUsulan(id, alasanPenolakan, userId) {
     const usulan = await PerpanjanganRepository.findUsulanById(id);
     if (!usulan || usulan.isDeleted) {
       const error = new Error('Usulan tidak ditemukan');
@@ -213,13 +239,25 @@ export class PerpanjanganService {
       throw error;
     }
 
-    return PerpanjanganRepository.updateUsulanStatus(id, {
+    const updated = await PerpanjanganRepository.updateUsulanStatus(id, {
       status: 'REJECTED',
       alasanPenolakan
     });
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'REJECT_USULAN', 'UsulanPerpanjangan', id, {
+        nipBaru: usulan.dataP3k?.nipBaru,
+        namaPegawai: usulan.dataP3k?.nama,
+        nomorKontrak: usulan.nomorKontrak,
+        status: 'REJECTED',
+        alasanPenolakan
+      });
+    }
+
+    return updated;
   }
 
-  static async uploadFinalDocument(id, finalFileUrl) {
+  static async uploadFinalDocument(id, finalFileUrl, userId) {
     const usulan = await PerpanjanganRepository.findUsulanById(id);
     if (!usulan || usulan.isDeleted) {
       const error = new Error('Usulan tidak ditemukan');
@@ -264,14 +302,25 @@ export class PerpanjanganService {
       }
     }
 
-    return PerpanjanganRepository.updateUsulanStatus(id, {
+    const updated = await PerpanjanganRepository.updateUsulanStatus(id, {
       status: 'SELESAI',
       finalFileUrl,
       generatedFileUrl: null
     });
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'FINALIZE_USULAN', 'UsulanPerpanjangan', id, {
+        nipBaru: usulan.dataP3k?.nipBaru,
+        namaPegawai: usulan.dataP3k?.nama,
+        nomorKontrak: usulan.nomorKontrak,
+        status: 'SELESAI'
+      });
+    }
+
+    return updated;
   }
 
-  static async processToSrikandi(id) {
+  static async processToSrikandi(id, userId) {
     const usulan = await PerpanjanganRepository.findUsulanById(id);
     if (!usulan || usulan.isDeleted) {
       const error = new Error('Usulan tidak ditemukan');
@@ -285,9 +334,20 @@ export class PerpanjanganService {
       throw error;
     }
 
-    return PerpanjanganRepository.updateUsulanStatus(id, {
+    const updated = await PerpanjanganRepository.updateUsulanStatus(id, {
       status: 'UPLOAD_SRIKANDI'
     });
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'PROCESS_SRIKANDI', 'UsulanPerpanjangan', id, {
+        nipBaru: usulan.dataP3k?.nipBaru,
+        namaPegawai: usulan.dataP3k?.nama,
+        nomorKontrak: usulan.nomorKontrak,
+        status: 'UPLOAD_SRIKANDI'
+      });
+    }
+
+    return updated;
   }
 
   static async deleteUsulan(id, userId) {
