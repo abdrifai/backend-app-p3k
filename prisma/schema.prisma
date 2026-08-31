@@ -496,5 +496,6 @@ model RekapKinerjaHarian {
 
   @@unique([tanggal, userId])
   @@index([tanggal])
+  @@index([userId])
   @@map("rekap_kinerja_harian")
 }
