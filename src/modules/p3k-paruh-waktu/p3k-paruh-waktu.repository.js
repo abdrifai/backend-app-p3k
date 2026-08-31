@@ -179,32 +179,13 @@ export class P3kParuhWaktuRepository {
 
   /**
    * Bulk sync / upsert records into data_p3k_paruh_waktu
+   * Note: unorIndukId is set to NULL by default for manual mapping.
    */
   static async syncToDataP3kParuhWaktu(records, chunkSize = 500) {
     let syncedCount = 0;
 
-    // 1. Fetch all RefUnors for auto matching
-    const refUnors = await prisma.refUnor.findMany({
-      where: { isDeleted: false },
-      select: { id: true, nama: true }
-    });
-
-    // Match helper
-    const resolveUnorIndukId = (unorNama, unorInduk) => {
-      if (!unorNama && !unorInduk) return null;
-      const target = (unorInduk || unorNama || '').toLowerCase();
-      for (const ru of refUnors) {
-        const rName = ru.nama.toLowerCase();
-        if (target.includes(rName) || rName.includes(target)) {
-          return ru.id;
-        }
-      }
-      return null;
-    };
-
-    // 2. Prepare records
+    // Prepare records with unorIndukId = null (manual assignment only)
     const masterRecords = records.map(r => {
-      const unorIndukId = resolveUnorIndukId(r.unorNama, r.unorInduk);
       return {
         id: r.id,
         pnsId: r.pnsId || null,
@@ -263,7 +244,7 @@ export class P3kParuhWaktuRepository {
         lokasiKerjaNama: r.lokasiKerjaNama || null,
         unorId: r.unorId || null,
         unorNama: r.unorNama || null,
-        unorIndukId: unorIndukId,
+        unorIndukId: null, // Diisi secara manual oleh pengguna
         instansiIndukId: r.instansiIndukId || null,
         instansiIndukNama: r.instansiIndukNama || null,
         instansiKerjaId: r.instansiKerjaId || null,
