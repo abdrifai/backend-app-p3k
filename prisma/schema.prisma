@@ -18,6 +18,10 @@ model User {
   namaLengkap         String               @default("")
   role                String               @default("user")
   foto                String?
+  lastActiveAt        DateTime?
+  lastLoginAt         DateTime?
+  lastIpAddress       String?
+  lastUserAgent       String?
   activityLogs        ActivityLog[]        @relation("UserActivities")
   activityLogsArchive ActivityLogArchive[] @relation("UserArchiveActivities")
   editedTasks         DataP3k[]            @relation("TaskEditor")

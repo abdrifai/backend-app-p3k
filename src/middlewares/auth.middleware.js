@@ -25,11 +25,26 @@ export const authenticate = async (req, res, next) => {
     // We only need basic user info in req.user
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, username: true, role: true, isDeleted: true }
+      select: { id: true, username: true, role: true, isDeleted: true, lastActiveAt: true }
     });
 
     if (!user || user.isDeleted) {
       return res.status(401).json({ success: false, message: 'The user belonging to this token does no longer exist.' });
+    }
+
+    // Non-blocking update activity if > 30 seconds since last update
+    const now = Date.now();
+    if (!user.lastActiveAt || now - new Date(user.lastActiveAt).getTime() > 30000) {
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || null;
+      const userAgent = req.headers['user-agent']?.substring(0, 500) || null;
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastActiveAt: new Date(),
+          lastIpAddress: ip,
+          lastUserAgent: userAgent
+        }
+      }).catch(() => {});
     }
 
     const userRoles = String(user.role || 'user').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);

@@ -106,7 +106,7 @@ class UserService {
     return formatUser(reactivated);
   }
 
-  async login(username, password) {
+  async login(username, password, { ip, userAgent } = {}) {
     // Find user
     const user = await userRepository.findByUsername(username);
     if (!user) {
@@ -122,6 +122,9 @@ class UserService {
       error.statusCode = 401;
       throw error;
     }
+
+    // Update lastLoginAt, lastActiveAt, lastIpAddress, lastUserAgent
+    await userRepository.updateLoginInfo(user.id, { ip, userAgent }).catch(() => {});
 
     const userRoles = String(user.role || 'user').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
 
@@ -145,10 +148,20 @@ class UserService {
         namaLengkap: user.namaLengkap,
         role: user.role,
         roles: userRoles,
-        foto: user.foto
+        foto: user.foto,
+        lastLoginAt: new Date(),
+        lastActiveAt: new Date()
       },
       token
     };
+  }
+
+  async recordHeartbeat(userId, { ip, userAgent } = {}) {
+    return await userRepository.updateHeartbeat(userId, { ip, userAgent });
+  }
+
+  async getOnlineUsersMonitoring() {
+    return await userRepository.getOnlineUsersMonitoring();
   }
 
   async forgotPassword(email) {

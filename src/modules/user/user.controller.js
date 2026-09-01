@@ -54,8 +54,12 @@ class UserController {
       throw err;
     }
 
+    // Extract IP and UserAgent
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || null;
+    const userAgent = req.headers['user-agent']?.substring(0, 500) || null;
+
     // Call service layer
-    const authData = await userService.login(value.username, value.password);
+    const authData = await userService.login(value.username, value.password, { ip, userAgent });
 
     // Set cookie (HTTP-only)
     res.cookie('token', authData.token, {
@@ -68,6 +72,33 @@ class UserController {
       success: true,
       message: 'User logged in successfully',
       data: authData
+    });
+  });
+
+  heartbeat = asyncHandler(async (req, res) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || null;
+    const userAgent = req.headers['user-agent']?.substring(0, 500) || null;
+
+    await userService.recordHeartbeat(userId, { ip, userAgent });
+
+    res.status(200).json({
+      success: true,
+      message: 'Heartbeat recorded'
+    });
+  });
+
+  getOnlineUsers = asyncHandler(async (req, res) => {
+    const result = await userService.getOnlineUsersMonitoring();
+
+    res.status(200).json({
+      success: true,
+      message: 'Data user online berhasil diambil',
+      data: result
     });
   });
 

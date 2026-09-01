@@ -279,6 +279,101 @@ class UserRepository {
       where: { id }
     });
   }
+
+  async updateHeartbeat(id, { ip, userAgent } = {}) {
+    const data = { lastActiveAt: new Date() };
+    if (ip) data.lastIpAddress = ip;
+    if (userAgent) data.lastUserAgent = userAgent;
+    return await prisma.user.update({
+      where: { id },
+      data
+    });
+  }
+
+  async updateLoginInfo(id, { ip, userAgent } = {}) {
+    const now = new Date();
+    const data = {
+      lastLoginAt: now,
+      lastActiveAt: now
+    };
+    if (ip) data.lastIpAddress = ip;
+    if (userAgent) data.lastUserAgent = userAgent;
+    return await prisma.user.update({
+      where: { id },
+      data
+    });
+  }
+
+  async getOnlineUsersMonitoring() {
+    const users = await prisma.user.findMany({
+      where: { isDeleted: false },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        namaLengkap: true,
+        role: true,
+        foto: true,
+        lastActiveAt: true,
+        lastLoginAt: true,
+        lastIpAddress: true,
+        lastUserAgent: true,
+        createdAt: true
+      },
+      orderBy: [
+        { lastActiveAt: 'desc' },
+        { lastLoginAt: 'desc' },
+        { namaLengkap: 'asc' }
+      ]
+    });
+
+    const now = Date.now();
+    const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 menit
+    const IDLE_THRESHOLD_MS = 15 * 60 * 1000; // 15 menit
+
+    let totalOnline = 0;
+    let totalIdle = 0;
+    let totalOffline = 0;
+
+    const formattedUsers = users.map(u => {
+      let status = 'offline';
+      let secondsAgo = null;
+
+      if (u.lastActiveAt) {
+        const diffMs = now - new Date(u.lastActiveAt).getTime();
+        secondsAgo = Math.max(0, Math.floor(diffMs / 1000));
+        if (diffMs <= ONLINE_THRESHOLD_MS) {
+          status = 'online';
+          totalOnline++;
+        } else if (diffMs <= IDLE_THRESHOLD_MS) {
+          status = 'idle';
+          totalIdle++;
+        } else {
+          status = 'offline';
+          totalOffline++;
+        }
+      } else {
+        totalOffline++;
+      }
+
+      return {
+        ...u,
+        status,
+        secondsAgo
+      };
+    });
+
+    return {
+      summary: {
+        totalUsers: users.length,
+        totalOnline,
+        totalIdle,
+        totalOffline
+      },
+      users: formattedUsers
+    };
+  }
 }
 
 export default new UserRepository();
+

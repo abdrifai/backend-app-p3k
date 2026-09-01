@@ -79,6 +79,10 @@ router.post('/login', userController.login);
 router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password', userController.resetPassword);
 
+// Heartbeat & Online Monitoring routes
+router.post('/heartbeat', authenticate, userController.heartbeat);
+router.get('/monitoring-online', authenticate, userController.getOnlineUsers);
+
 // Current user profile routes
 router.get('/profile', authenticate, userController.getProfile);
 router.put('/profile', authenticate, uploadUserPhoto.single('foto'), userController.updateProfile);
@@ -91,3 +95,4 @@ router.delete('/:id/permanent', authenticate, authorize('admin'), userController
 router.delete('/:id', authenticate, authorize('admin'), userController.remove);
 
 export default router;
+
