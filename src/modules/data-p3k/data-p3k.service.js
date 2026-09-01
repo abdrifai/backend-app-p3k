@@ -67,6 +67,7 @@ export class DataP3kService {
       totalAll,
       totalActive,
       totalPensiun,
+      totalParuhWaktu,
       genderCount,
       pendidikanStats,
       unorStats,
@@ -77,6 +78,7 @@ export class DataP3kService {
       DataP3kRepository.getTotalCount({}),
       DataP3kRepository.getTotalCount({ statusPensiun: 'AKTIF' }),
       DataP3kRepository.getTotalCount({ statusPensiun: 'PENSIUN' }),
+      prisma.dataP3kParuhWaktu.count({ where: { isDeleted: false, statusPensiun: 'AKTIF' } }),
       DataP3kRepository.getGenderCount(activeFilter),
       DataP3kRepository.groupByField('tingkatPendidikanNama', activeFilter),
       DataP3kRepository.groupByUnorInduk(activeFilter),
@@ -85,10 +87,14 @@ export class DataP3kService {
       DataP3kRepository.groupByField('jenisJabatanNama', activeFilter)
     ]);
 
+    const combinedTotal = totalActive + totalParuhWaktu;
+
     return {
       summary: {
-        total: totalAll,
+        total: combinedTotal, // P3K Aktif + P3K Paruh Waktu
+        totalAllPenuhWaktu: totalAll,
         aktif: totalActive,
+        paruhWaktu: totalParuhWaktu,
         pensiun: totalPensiun
       },
       total: totalActive, // Keep for backward compatibility with existing charts
