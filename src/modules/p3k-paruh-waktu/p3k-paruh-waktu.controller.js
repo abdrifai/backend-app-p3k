@@ -197,6 +197,31 @@ export class P3kParuhWaktuController {
   }
 
   /**
+   * Get single Master DataP3kParuhWaktu by ID or NIP
+   */
+  static async getMasterById(req, res, next) {
+    try {
+      const { id } = req.params;
+      const data = await P3kParuhWaktuService.getMasterByIdOrNip(id);
+      if (!data) {
+        return res.status(404).json({
+          success: false,
+          data: null,
+          message: 'Data Master P3K Paruh Waktu tidak ditemukan'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data,
+        message: 'Detail Master P3K Paruh Waktu berhasil diambil'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * Update Unor Induk Mapping for a single record
    */
   static async updateMappingUnor(req, res, next) {

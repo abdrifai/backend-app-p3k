@@ -351,5 +351,23 @@ export class P3kParuhWaktuRepository {
       data: { unorIndukId: unorIndukId || null }
     });
   }
+
+  /**
+   * Find single master DataP3kParuhWaktu by ID or NIP Baru
+   */
+  static async findMasterByIdOrNip(idOrNip) {
+    return prisma.dataP3kParuhWaktu.findFirst({
+      where: {
+        OR: [
+          { id: idOrNip },
+          { nipBaru: idOrNip }
+        ],
+        isDeleted: false
+      },
+      include: {
+        unorInduk: true
+      }
+    });
+  }
 }
 

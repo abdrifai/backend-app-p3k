@@ -200,5 +200,17 @@ export class P3kParuhWaktuService {
   static async deleteById(id) {
     return P3kParuhWaktuRepository.deleteById(id);
   }
+
+  /**
+   * Get single master DataP3kParuhWaktu by ID or NIP
+   */
+  static async getMasterByIdOrNip(idOrNip) {
+    const data = await P3kParuhWaktuRepository.findMasterByIdOrNip(idOrNip);
+    if (!data) return null;
+    return {
+      ...data,
+      isParuhWaktu: true
+    };
+  }
 }
 
