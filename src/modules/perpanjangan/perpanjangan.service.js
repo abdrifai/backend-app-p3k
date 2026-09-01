@@ -31,13 +31,13 @@ export class PerpanjanganService {
   }
 
   // --- Usulan ---
-  static async getAllUsulan({ page = 1, limit = 10, status = '', search = '', userId, isAdmin }) {
+  static async getAllUsulan({ page = 1, limit = 10, status = '', search = '', unorIndukId = '', userId, isAdmin }) {
     const isAll = limit === 'all';
     const parsedPage = isAll ? 1 : (parseInt(page) || 1);
     const parsedLimit = isAll ? 1000000 : (parseInt(limit) || 10);
     const skip = isAll ? 0 : (parsedPage - 1) * parsedLimit;
 
-    const { data, total } = await PerpanjanganRepository.findAllUsulan({ skip, take: parsedLimit, status, search, userId, isAdmin });
+    const { data, total } = await PerpanjanganRepository.findAllUsulan({ skip, take: parsedLimit, status, search, unorIndukId, userId, isAdmin });
     
     // Map with additional calculated data (gaji, etc)
     const mappedData = await Promise.all(data.map(async (u) => {
@@ -795,16 +795,18 @@ export class PerpanjanganService {
       ? Number(((totalPegawaiDenganUsulan / totalPegawaiAktif) * 100).toFixed(1))
       : 0;
 
-    // Grouping by Unit Kerja (Unor)
+    // Grouping by Unit Kerja (Unor Induk)
     const unorMap = new Map();
 
     raw.dataP3kWithUsulan.forEach((pegawai) => {
-      // Group strictly by Unor Induk (blank if not set)
-      const unorKey = (pegawai.unorInduk && pegawai.unorInduk.nama) ? pegawai.unorInduk.nama : '';
+      // Group strictly by Unor Induk ID (or unmapped if not set)
+      const rawUnorIndukId = (pegawai.unorInduk && pegawai.unorInduk.id) ? pegawai.unorInduk.id : (pegawai.unorIndukId || 'unmapped');
+      const unorNama = (pegawai.unorInduk && pegawai.unorInduk.nama) ? pegawai.unorInduk.nama : '(Belum Terpetakan / Kosong)';
 
-      if (!unorMap.has(unorKey)) {
-        unorMap.set(unorKey, {
-          unorNama: unorKey,
+      if (!unorMap.has(rawUnorIndukId)) {
+        unorMap.set(rawUnorIndukId, {
+          unorIndukId: rawUnorIndukId === 'unmapped' ? 'unmapped' : rawUnorIndukId,
+          unorNama: unorNama,
           totalPegawai: 0,
           totalUsulan: 0,
           selesai: 0,
@@ -817,7 +819,7 @@ export class PerpanjanganService {
         });
       }
 
-      const item = unorMap.get(unorKey);
+      const item = unorMap.get(rawUnorIndukId);
       item.totalPegawai += 1;
 
       if (pegawai.usulanPerpanjangan && pegawai.usulanPerpanjangan.length > 0) {

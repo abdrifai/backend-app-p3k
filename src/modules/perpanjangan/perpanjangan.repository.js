@@ -29,7 +29,7 @@ export class PerpanjanganRepository {
   }
 
   // --- Usulan CRUD ---
-  static async findAllUsulan({ skip, take, status, search, userId, isAdmin }) {
+  static async findAllUsulan({ skip, take, status, search, unorIndukId, userId, isAdmin }) {
     const where = { AND: [{ isDeleted: false }] };
     
     // Visibility restriction: non-admin only sees created/assigned records
@@ -44,6 +44,13 @@ export class PerpanjanganRepository {
 
     if (status) {
       where.AND.push({ status });
+    }
+    if (unorIndukId) {
+      if (unorIndukId === 'null' || unorIndukId === 'unmapped') {
+        where.AND.push({ dataP3k: { unorIndukId: null } });
+      } else {
+        where.AND.push({ dataP3k: { unorIndukId: unorIndukId } });
+      }
     }
     if (search) {
       where.AND.push({
@@ -70,7 +77,8 @@ export class PerpanjanganRepository {
               gelarBelakang: true, jabatanNama: true, unorNama: true,
               mkTahun: true, mkBulan: true, tmtCpns: true,
               golAkhirNama: true, golAwalNama: true, statusPensiun: true,
-              unorInduk: { select: { nama: true } }
+              unorIndukId: true,
+              unorInduk: { select: { id: true, nama: true } }
             }
           },
           templateKontrak: {
@@ -252,7 +260,8 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
           nipBaru: true,
           nama: true,
           unorNama: true,
-          unorInduk: { select: { nama: true } },
+          unorIndukId: true,
+          unorInduk: { select: { id: true, nama: true } },
           usulanPerpanjangan: {
             where: { isDeleted: false },
             select: { id: true, status: true, updatedAt: true }
