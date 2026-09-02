@@ -21,7 +21,7 @@ model User {
   lastActiveAt        DateTime?
   lastLoginAt         DateTime?
   lastIpAddress       String?
-  lastUserAgent       String?
+  lastUserAgent       String?              @db.VarChar(500)
   activityLogs        ActivityLog[]        @relation("UserActivities")
   activityLogsArchive ActivityLogArchive[] @relation("UserArchiveActivities")
   editedTasks         DataP3k[]            @relation("TaskEditor")
@@ -281,7 +281,7 @@ model DataP3kParuhWaktu {
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
-  @@index([unorIndukId], map: "data_p3k_paruh_waktu_unorIndukId_fkey")
+  @@index([unorIndukId], map: "data_p3k_paruh_waktu_unorIndukId_idx")
   @@index([unorNama])
   @@index([golAkhirNama])
   @@index([nama])
@@ -317,6 +317,13 @@ model ArsipSkCpns {
 model RefUnor {
   id                String              @id @default(uuid())
   nama              String              @unique
+  kode              String?
+  parentId          String?             @map("parent_id")
+  parent            RefUnor?            @relation("UnorHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children          RefUnor[]           @relation("UnorHierarchy")
+  level             Int                 @default(1)
+  jenis             String?             @default("INDUK")
+  keterangan        String?
   isDeleted         Boolean             @default(false)
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
@@ -324,6 +331,7 @@ model RefUnor {
   mappingUnors      MappingUnor[]
   dataP3kParuhWaktu DataP3kParuhWaktu[]
 
+  @@index([parentId])
   @@map("ref_unor")
 }
 

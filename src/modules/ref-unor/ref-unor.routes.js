@@ -6,6 +6,8 @@ const router = express.Router();
 
 router.use(authenticate);
 
+router.get('/tree', RefUnorController.getTree);
+router.get('/:id', RefUnorController.getById);
 router.get('/', RefUnorController.getAll);
 router.post('/', RefUnorController.create);
 router.put('/:id', RefUnorController.update);

@@ -24,6 +24,18 @@ export class RefUnorController {
    *         name: search
    *         schema:
    *           type: string
+   *       - in: query
+   *         name: parentId
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: level
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: isIndukOnly
+   *         schema:
+   *           type: boolean
    *     responses:
    *       200:
    *         description: Berhasil mengambil data
@@ -32,14 +44,64 @@ export class RefUnorController {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || '';
+    const parentId = req.query.parentId;
+    const level = req.query.level;
+    const isIndukOnly = req.query.isIndukOnly === 'true' || req.query.isIndukOnly === true;
 
-    const result = await RefUnorService.getAll({ page, limit, search });
+    const result = await RefUnorService.getAll({ page, limit, search, parentId, level, isIndukOnly });
 
     res.status(200).json({
       success: true,
       message: 'Berhasil mengambil daftar referensi unit kerja',
       data: result.data,
       meta: result.meta
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/ref-unor/tree:
+   *   get:
+   *     tags: [Referensi Unit Kerja]
+   *     summary: Ambil struktur pohon hierarki unit kerja (Parent - Child)
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil struktur hierarki unit kerja
+   */
+  static getTree = asyncHandler(async (req, res) => {
+    const data = await RefUnorService.getTree();
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil struktur pohon hierarki unit kerja',
+      data
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/ref-unor/{id}:
+   *   get:
+   *     tags: [Referensi Unit Kerja]
+   *     summary: Ambil detail referensi unit kerja berdasarkan ID
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil detail unit kerja
+   */
+  static getById = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const data = await RefUnorService.getById(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil detail referensi unit kerja',
+      data
     });
   });
 
@@ -57,6 +119,14 @@ export class RefUnorController {
    *             type: object
    *             properties:
    *               nama:
+   *                 type: string
+   *               parentId:
+   *                 type: string
+   *               kode:
+   *                 type: string
+   *               jenis:
+   *                 type: string
+   *               keterangan:
    *                 type: string
    *     responses:
    *       201:
@@ -100,6 +170,14 @@ export class RefUnorController {
    *             type: object
    *             properties:
    *               nama:
+   *                 type: string
+   *               parentId:
+   *                 type: string
+   *               kode:
+   *                 type: string
+   *               jenis:
+   *                 type: string
+   *               keterangan:
    *                 type: string
    *     responses:
    *       200:
