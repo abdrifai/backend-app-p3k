@@ -11,6 +11,7 @@ router.get('/:id', RefUnorController.getById);
 router.get('/', RefUnorController.getAll);
 router.post('/', RefUnorController.create);
 router.put('/:id', RefUnorController.update);
+router.patch('/:id/status', RefUnorController.toggleStatus);
 router.delete('/:id', RefUnorController.delete);
 
 export const refUnorRoutes = router;

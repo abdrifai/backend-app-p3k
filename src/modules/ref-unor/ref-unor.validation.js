@@ -11,5 +11,6 @@ export const refUnorSchema = Joi.object({
     .valid('INDUK', 'BIDANG', 'SEKSI', 'UPTD', 'PUSKESMAS', 'SEKOLAH', 'SUB_UNOR')
     .default('INDUK')
     .optional(),
+  isActive: Joi.boolean().optional().default(true),
   keterangan: Joi.string().trim().optional().allow('', null)
 });

@@ -1,7 +1,7 @@
 import prisma from '../../config/database.js';
 
 export class RefUnorRepository {
-  static async findAll({ skip = 0, take = 10, search = '', parentId = undefined, level = undefined, isIndukOnly = false }) {
+  static async findAll({ skip = 0, take = 10, search = '', parentId = undefined, level = undefined, isIndukOnly = false, isActive = undefined }) {
     let where = { isDeleted: false };
     if (search) {
       where.nama = { contains: search };
@@ -13,6 +13,9 @@ export class RefUnorRepository {
     }
     if (level !== undefined && level !== null && level !== '') {
       where.level = parseInt(level);
+    }
+    if (isActive !== undefined && isActive !== null && isActive !== '') {
+      where.isActive = isActive === true || isActive === 'true';
     }
 
     const [data, total] = await Promise.all([
@@ -42,10 +45,15 @@ export class RefUnorRepository {
     return { data, total };
   }
 
-  static async findTree() {
+  static async findTree({ isActive = undefined } = {}) {
+    let where = { isDeleted: false };
+    if (isActive !== undefined && isActive !== null && isActive !== '') {
+      where.isActive = isActive === true || isActive === 'true';
+    }
+
     // Fetch all non-deleted records
     const all = await prisma.refUnor.findMany({
-      where: { isDeleted: false },
+      where,
       include: {
         _count: {
           select: {
@@ -143,6 +151,18 @@ export class RefUnorRepository {
     return prisma.refUnor.update({
       where: { id },
       data,
+      include: {
+        parent: {
+          select: { id: true, nama: true, level: true, jenis: true }
+        }
+      }
+    });
+  }
+
+  static async toggleStatus(id, isActive) {
+    return prisma.refUnor.update({
+      where: { id },
+      data: { isActive },
       include: {
         parent: {
           select: { id: true, nama: true, level: true, jenis: true }

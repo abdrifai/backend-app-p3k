@@ -36,6 +36,10 @@ export class RefUnorController {
    *         name: isIndukOnly
    *         schema:
    *           type: boolean
+   *       - in: query
+   *         name: isActive
+   *         schema:
+   *           type: boolean
    *     responses:
    *       200:
    *         description: Berhasil mengambil data
@@ -47,8 +51,9 @@ export class RefUnorController {
     const parentId = req.query.parentId;
     const level = req.query.level;
     const isIndukOnly = req.query.isIndukOnly === 'true' || req.query.isIndukOnly === true;
+    const isActive = req.query.isActive;
 
-    const result = await RefUnorService.getAll({ page, limit, search, parentId, level, isIndukOnly });
+    const result = await RefUnorService.getAll({ page, limit, search, parentId, level, isIndukOnly, isActive });
 
     res.status(200).json({
       success: true,
@@ -64,12 +69,18 @@ export class RefUnorController {
    *   get:
    *     tags: [Referensi Unit Kerja]
    *     summary: Ambil struktur pohon hierarki unit kerja (Parent - Child)
+   *     parameters:
+   *       - in: query
+   *         name: isActive
+   *         schema:
+   *           type: boolean
    *     responses:
    *       200:
    *         description: Berhasil mengambil struktur hierarki unit kerja
    */
   static getTree = asyncHandler(async (req, res) => {
-    const data = await RefUnorService.getTree();
+    const isActive = req.query.isActive;
+    const data = await RefUnorService.getTree({ isActive });
 
     res.status(200).json({
       success: true,
@@ -225,6 +236,41 @@ export class RefUnorController {
       success: true,
       message: 'Referensi unit kerja berhasil dihapus',
       data: null
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/ref-unor/{id}/status:
+   *   patch:
+   *     tags: [Referensi Unit Kerja]
+   *     summary: Aktifkan / Nonaktifkan status unit kerja
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               isActive:
+   *                 type: boolean
+   *     responses:
+   *       200:
+   *         description: Status berhasil diubah
+   */
+  static toggleStatus = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { isActive } = req.body;
+    const data = await RefUnorService.toggleStatus(id, isActive);
+    res.status(200).json({
+      success: true,
+      message: `Unit kerja berhasil ${data.isActive ? 'diaktifkan' : 'dinonaktifkan'}`,
+      data
     });
   });
 }

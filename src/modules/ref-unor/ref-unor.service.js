@@ -1,9 +1,9 @@
 import { RefUnorRepository } from './ref-unor.repository.js';
 
 export class RefUnorService {
-  static async getAll({ page = 1, limit = 10, search = '', parentId = undefined, level = undefined, isIndukOnly = false }) {
+  static async getAll({ page = 1, limit = 10, search = '', parentId = undefined, level = undefined, isIndukOnly = false, isActive = undefined }) {
     const skip = (page - 1) * limit;
-    const { data, total } = await RefUnorRepository.findAll({ skip, take: limit, search, parentId, level, isIndukOnly });
+    const { data, total } = await RefUnorRepository.findAll({ skip, take: limit, search, parentId, level, isIndukOnly, isActive });
 
     return {
       data,
@@ -16,8 +16,8 @@ export class RefUnorService {
     };
   }
 
-  static async getTree() {
-    return await RefUnorRepository.findTree();
+  static async getTree({ isActive = undefined } = {}) {
+    return await RefUnorRepository.findTree({ isActive });
   }
 
   static async getById(id) {
@@ -140,6 +140,19 @@ export class RefUnorService {
       currentId = node?.parentId;
     }
     return false;
+  }
+
+  static async toggleStatus(id, isActive) {
+    const error = new Error();
+    const row = await RefUnorRepository.findById(id);
+    if (!row) {
+      error.message = 'Referensi Unit Kerja tidak ditemukan';
+      error.status = 404;
+      throw error;
+    }
+
+    const nextStatus = isActive !== undefined ? (isActive === true || isActive === 'true') : !row.isActive;
+    return await RefUnorRepository.toggleStatus(id, nextStatus);
   }
 
   static async delete(id) {
