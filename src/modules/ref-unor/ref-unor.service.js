@@ -33,14 +33,8 @@ export class RefUnorService {
 
   static async create(payload) {
     const error = new Error();
-    const existing = await RefUnorRepository.findByName(payload.nama);
-    if (existing) {
-      error.message = 'Nama Unit Kerja sudah ada';
-      error.status = 400;
-      throw error;
-    }
 
-    // Process parent and calculate level
+    // Process parent and calculate level first
     if (payload.parentId && payload.parentId.trim() !== '') {
       const parent = await RefUnorRepository.findById(payload.parentId);
       if (!parent) {
@@ -61,6 +55,16 @@ export class RefUnorService {
       }
     }
 
+    // Check duplicate within the same parent
+    const existing = await RefUnorRepository.findByNameAndParent(payload.nama, payload.parentId);
+    if (existing) {
+      error.message = payload.parentId
+        ? `Nama Sub Unit Kerja "${payload.nama}" sudah ada di bawah unit kerja induk yang sama`
+        : `Nama Unit Kerja Induk "${payload.nama}" sudah terdaftar`;
+      error.status = 400;
+      throw error;
+    }
+
     return await RefUnorRepository.create(payload);
   }
 
@@ -73,14 +77,7 @@ export class RefUnorService {
       throw error;
     }
 
-    if (payload.nama) {
-      const existing = await RefUnorRepository.findByName(payload.nama, id);
-      if (existing) {
-        error.message = 'Nama Unit Kerja sudah terpakai';
-        error.status = 400;
-        throw error;
-      }
-    }
+    let targetParentId = row.parentId;
 
     // Process parentId & level updates
     if (payload.parentId !== undefined) {
@@ -107,13 +104,26 @@ export class RefUnorService {
         }
         payload.parentId = parent.id;
         payload.level = (parent.level || 1) + 1;
+        targetParentId = parent.id;
         if (payload.jenis === 'INDUK') {
           payload.jenis = 'SUB_UNOR';
         }
       } else {
         payload.parentId = null;
         payload.level = 1;
+        targetParentId = null;
       }
+    }
+
+    // Check duplicate within the target parent
+    const checkName = payload.nama || row.nama;
+    const existing = await RefUnorRepository.findByNameAndParent(checkName, targetParentId, id);
+    if (existing) {
+      error.message = targetParentId
+        ? `Nama Sub Unit Kerja "${checkName}" sudah terpakai di bawah unit kerja induk yang sama`
+        : `Nama Unit Kerja Induk "${checkName}" sudah terdaftar`;
+      error.status = 400;
+      throw error;
     }
 
     return await RefUnorRepository.update(id, payload);

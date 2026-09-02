@@ -316,7 +316,7 @@ model ArsipSkCpns {
 
 model RefUnor {
   id                String              @id @default(uuid())
-  nama              String              @unique
+  nama              String
   kode              String?
   parentId          String?             @map("parent_id")
   parent            RefUnor?            @relation("UnorHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
@@ -332,6 +332,7 @@ model RefUnor {
   dataP3kParuhWaktu DataP3kParuhWaktu[]
 
   @@index([parentId])
+  @@index([nama])
   @@map("ref_unor")
 }
 

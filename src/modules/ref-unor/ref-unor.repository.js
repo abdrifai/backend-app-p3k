@@ -108,6 +108,18 @@ export class RefUnorRepository {
     });
   }
 
+  static async findByNameAndParent(nama, parentId = null, excludeId = null) {
+    let where = {
+      nama,
+      parentId: parentId || null,
+      isDeleted: false
+    };
+    if (excludeId) {
+      where.id = { not: excludeId };
+    }
+    return prisma.refUnor.findFirst({ where });
+  }
+
   static async findByName(nama, excludeId = null) {
     let where = { nama, isDeleted: false };
     if (excludeId) {
