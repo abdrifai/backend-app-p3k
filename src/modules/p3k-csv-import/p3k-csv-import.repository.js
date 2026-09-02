@@ -208,24 +208,24 @@ export class P3kCsvImportRepository {
       orderBy: { nama: 'asc' }
     });
 
-    // 2. Agregasi data_p3k (Data Utama - Aktif) yang berelasi dengan ref_unor
+    // 2. Agregasi data_p3k (Data Utama - Aktif) yang berelasi dengan ref_unor via unorIndukId
     const utamaCounts = await prisma.$queryRawUnsafe(`
       SELECT 
         ru.id AS unorId,
         COUNT(DISTINCT d.id) AS totalUtama
       FROM ref_unor ru
-      LEFT JOIN data_p3k d ON (d.unorIndukId = ru.id OR d.unorNama LIKE CONCAT('%', ru.nama, '%')) AND d.isDeleted = false AND d.statusPensiun = 'AKTIF'
+      LEFT JOIN data_p3k d ON d.unorIndukId = ru.id AND d.isDeleted = false AND d.statusPensiun = 'AKTIF'
       WHERE ru.isDeleted = false
       GROUP BY ru.id
     `);
 
-    // 3. Agregasi p3k_csv_imports (Data Pembanding SIASN)
+    // 3. Agregasi p3k_csv_imports (Data Pembanding SIASN) dengan pencocokan nama eksak
     const importCounts = await prisma.$queryRawUnsafe(`
       SELECT 
         ru.id AS unorId,
         COUNT(DISTINCT i.id) AS totalImport
       FROM ref_unor ru
-      LEFT JOIN p3k_csv_imports i ON (i.unorInduk LIKE CONCAT('%', ru.nama, '%') OR i.unorNama LIKE CONCAT('%', ru.nama, '%')) AND i.isDeleted = false
+      LEFT JOIN p3k_csv_imports i ON (i.unorInduk = ru.nama OR i.unorNama = ru.nama) AND i.isDeleted = false
       WHERE ru.isDeleted = false
       GROUP BY ru.id
     `);
@@ -250,17 +250,41 @@ export class P3kCsvImportRepository {
     return summary;
   }
 
-  static async getCompareUnorDetail({ unitKerja, statusFilter = 'ALL', search = '', skip = 0, take = 50 }) {
-    // 1. Ambil data pegawai aktif dari data_p3k (Data Utama sebagai basis data)
+  static async getCompareUnorDetail({ unorIndukId, unitKerja, statusFilter = 'ALL', search = '', skip = 0, take = 50 }) {
+    // Cari target RefUnor jika unorIndukId atau unitKerja diberikan
+    let targetUnor = null;
+    if (unorIndukId) {
+      targetUnor = await prisma.refUnor.findFirst({
+        where: { id: unorIndukId, isDeleted: false },
+        select: { id: true, nama: true }
+      });
+    } else if (unitKerja) {
+      targetUnor = await prisma.refUnor.findFirst({
+        where: { nama: unitKerja, isDeleted: false },
+        select: { id: true, nama: true }
+      });
+    }
+
+    const effectiveUnorId = targetUnor?.id || unorIndukId;
+    const effectiveUnorNama = targetUnor?.nama || unitKerja;
+
+    // 1. Ambil data pegawai aktif dari data_p3k (Data Utama) berdasarkan unorIndukId
+    const dataP3kWhere = {
+      isDeleted: false,
+      statusPensiun: 'AKTIF'
+    };
+
+    if (effectiveUnorId) {
+      dataP3kWhere.unorIndukId = effectiveUnorId;
+    } else if (effectiveUnorNama) {
+      dataP3kWhere.OR = [
+        { unorInduk: { nama: effectiveUnorNama } },
+        { unorNama: effectiveUnorNama }
+      ];
+    }
+
     const utamaList = await prisma.dataP3k.findMany({
-      where: {
-        isDeleted: false,
-        statusPensiun: 'AKTIF',
-        OR: [
-          { unorInduk: { nama: { contains: unitKerja } } },
-          { unorNama: { contains: unitKerja } }
-        ]
-      },
+      where: dataP3kWhere,
       include: {
         unorInduk: { select: { id: true, nama: true } }
       },
@@ -282,8 +306,8 @@ export class P3kCsvImportRepository {
       where: {
         isDeleted: false,
         OR: [
-          { unorInduk: { contains: unitKerja } },
-          { unorNama: { contains: unitKerja } }
+          { unorInduk: effectiveUnorNama },
+          { unorNama: effectiveUnorNama }
         ],
         nipBaru: { notIn: utamaNips }
       }

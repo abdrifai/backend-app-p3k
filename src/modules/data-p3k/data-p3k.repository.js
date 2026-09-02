@@ -49,7 +49,7 @@ export class DataP3kRepository {
     return totalInserted;
   }
 
-  static _buildWhereClause({ search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }) {
+  static _buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }) {
     let where = { AND: [{ isDeleted: false }] };
 
     if (search) {
@@ -71,10 +71,14 @@ export class DataP3kRepository {
       });
     }
 
-    if (unitKerja) {
+    if (unorIndukId) {
+      where.AND.push({
+        unorIndukId: unorIndukId
+      });
+    } else if (unitKerja) {
       where.AND.push({
         unorInduk: {
-          nama: { contains: unitKerja }
+          nama: unitKerja
         }
       });
     }
@@ -106,8 +110,8 @@ export class DataP3kRepository {
     return where;
   }
 
-  static async findAll({ skip, take, search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }) {
-    const where = this._buildWhereClause({ search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
+  static async findAll({ skip, take, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }) {
+    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
 
     return prisma.dataP3k.findMany({
       where,
@@ -124,8 +128,8 @@ export class DataP3kRepository {
     });
   }
 
-  static async count({ search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan } = {}) {
-    const where = this._buildWhereClause({ search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
+  static async count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan } = {}) {
+    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
     return prisma.dataP3k.count({ where });
   }
 

@@ -222,8 +222,11 @@ export class P3kCsvImportController {
    *     summary: Detail perbandingan pegawai per unit kerja
    *     parameters:
    *       - in: query
+   *         name: unorIndukId
+   *         schema:
+   *           type: string
+   *       - in: query
    *         name: unitKerja
-   *         required: true
    *         schema:
    *           type: string
    *       - in: query
@@ -247,11 +250,12 @@ export class P3kCsvImportController {
    *       200:
    *         description: Berhasil mengambil detail perbandingan
    *       400:
-   *         description: Parameter unitKerja tidak ada
+   *         description: Parameter unitKerja atau unorIndukId tidak ada
    *       500:
    *         description: Server error
    */
   static getCompareUnorDetail = asyncHandler(async (req, res) => {
+    const unorIndukId = req.query.unorIndukId || '';
     const unitKerja = req.query.unitKerja || '';
     const statusFilter = req.query.statusFilter || 'ALL';
     const search = req.query.search || '';
@@ -259,6 +263,7 @@ export class P3kCsvImportController {
     const limit = parseInt(req.query.limit) || 50;
 
     const result = await P3kCsvImportService.getCompareUnorDetail({
+      unorIndukId,
       unitKerja,
       statusFilter,
       search,
@@ -268,7 +273,7 @@ export class P3kCsvImportController {
 
     res.status(200).json({
       success: true,
-      message: `Berhasil mengambil detail perbandingan untuk unit kerja: ${unitKerja}`,
+      message: `Berhasil mengambil detail perbandingan untuk unit kerja: ${unitKerja || unorIndukId}`,
       summary: result.summary,
       data: result.data,
       meta: result.meta

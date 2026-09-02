@@ -218,15 +218,16 @@ export class P3kCsvImportService {
     return P3kCsvImportRepository.getCompareUnorSummary({ search });
   }
 
-  static async getCompareUnorDetail({ unitKerja, statusFilter = 'ALL', search = '', page = 1, limit = 50 }) {
-    if (!unitKerja) {
-      const err = new Error('Nama unit kerja wajib diisi');
+  static async getCompareUnorDetail({ unorIndukId = '', unitKerja = '', statusFilter = 'ALL', search = '', page = 1, limit = 50 }) {
+    if (!unorIndukId && !unitKerja) {
+      const err = new Error('Unit kerja atau unorIndukId wajib diisi');
       err.statusCode = 400;
       throw err;
     }
 
     const skip = (page - 1) * limit;
     const { summary, data, totalFiltered } = await P3kCsvImportRepository.getCompareUnorDetail({
+      unorIndukId,
       unitKerja,
       statusFilter,
       search,

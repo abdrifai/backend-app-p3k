@@ -14,12 +14,12 @@ export class DataP3kService {
     }
   }
 
-  static async getAllDataP3k({ page = 1, limit = 10, search = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '' }) {
+  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '' }) {
     const skip = (page - 1) * limit;
 
     const [data, totalCount, totalActive] = await Promise.all([
-      DataP3kRepository.findAll({ skip, take: limit, search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }),
-      DataP3kRepository.count({ search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }),
+      DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }),
+      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }),
       DataP3kRepository.getTotalCount({ statusPensiun: 'AKTIF' })
     ]);
 

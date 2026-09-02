@@ -55,6 +55,10 @@ export class DataP3kController {
    *         schema:
    *           type: string
    *       - in: query
+   *         name: unorIndukId
+   *         schema:
+   *           type: string
+   *       - in: query
    *         name: unitKerja
    *         schema:
    *           type: string
@@ -87,6 +91,7 @@ export class DataP3kController {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || '';
+    const unorIndukId = req.query.unorIndukId || '';
     const unitKerja = req.query.unitKerja || '';
     const unitKerjaKosong = req.query.unitKerjaKosong === 'true';
     const unitKerjaAda = req.query.unitKerjaAda === 'true';
@@ -96,7 +101,7 @@ export class DataP3kController {
     const golongan = req.query.golongan || '';
     const jenisJabatan = req.query.jenisJabatan || '';
 
-    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
+    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
 
     res.status(200).json({
       success: true,
