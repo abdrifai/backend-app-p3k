@@ -660,6 +660,143 @@ class TaskRepository {
     });
     return count;
   }
+
+  /**
+   * Search / list pegawai (DataP3k) for assignment with task info
+   */
+  async searchPegawaiForTask({ search = '', kegiatan = '', statusPenugasan = 'ALL', unorIndukId = '', skip = 0, take = 10 }) {
+    const where = {
+      isDeleted: false,
+      statusPensiun: 'AKTIF'
+    };
+
+    if (search) {
+      where.OR = [
+        { nama: { contains: search } },
+        { nipBaru: { contains: search } },
+        { nik: { contains: search } }
+      ];
+    }
+
+    if (unorIndukId) {
+      where.unorIndukId = unorIndukId;
+    }
+
+    if (statusPenugasan === 'ASSIGNED') {
+      where.tasksPeremajaan = {
+        some: {
+          isDeleted: false,
+          isCompleted: false,
+          ...(kegiatan ? { kegiatan } : {})
+        }
+      };
+    } else if (statusPenugasan === 'UNASSIGNED') {
+      where.tasksPeremajaan = {
+        none: {
+          isDeleted: false,
+          isCompleted: false,
+          ...(kegiatan ? { kegiatan } : {})
+        }
+      };
+    } else if (statusPenugasan === 'COMPLETED') {
+      where.tasksPeremajaan = {
+        some: {
+          isDeleted: false,
+          isCompleted: true,
+          ...(kegiatan ? { kegiatan } : {})
+        }
+      };
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.dataP3k.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          unorInduk: { select: { id: true, nama: true } },
+          tasksPeremajaan: {
+            where: { isDeleted: false },
+            include: {
+              assignedToUser: {
+                select: { id: true, username: true, namaLengkap: true, role: true }
+              }
+            },
+            orderBy: { createdAt: 'desc' }
+          }
+        },
+        orderBy: { nama: 'asc' }
+      }),
+      prisma.dataP3k.count({ where })
+    ]);
+
+    return { data, total };
+  }
+
+  /**
+   * Assign tasks by specific list of pegawai (dataP3kIds)
+   */
+  async assignTasksByPegawai(dataP3kIds, userId, kegiatan = 'Umum') {
+    let totalAssigned = 0;
+    const effectiveKegiatan = (kegiatan || 'Umum').trim();
+
+    for (const dataP3kId of dataP3kIds) {
+      const existingUncompletedTask = await prisma.taskPeremajaan.findFirst({
+        where: {
+          dataP3kId,
+          kegiatan: effectiveKegiatan,
+          isCompleted: false,
+          isDeleted: false
+        }
+      });
+
+      if (existingUncompletedTask) {
+        await prisma.taskPeremajaan.update({
+          where: { id: existingUncompletedTask.id },
+          data: {
+            assignedToUserId: userId,
+            updatedAt: new Date()
+          }
+        });
+        totalAssigned++;
+      } else {
+        await prisma.taskPeremajaan.create({
+          data: {
+            dataP3kId,
+            assignedToUserId: userId,
+            kegiatan: effectiveKegiatan,
+            isCompleted: false
+          }
+        });
+        totalAssigned++;
+      }
+    }
+
+    return totalAssigned;
+  }
+
+  /**
+   * Unassign tasks by specific dataP3kIds or taskIds
+   */
+  async unassignTasksByPegawai({ dataP3kIds = [], taskIds = [], kegiatan = '' }) {
+    const where = {
+      isCompleted: false
+    };
+
+    if (taskIds && taskIds.length > 0) {
+      where.id = { in: taskIds };
+    } else if (dataP3kIds && dataP3kIds.length > 0) {
+      where.dataP3kId = { in: dataP3kIds };
+      if (kegiatan) {
+        where.kegiatan = kegiatan;
+      }
+    } else {
+      return 0;
+    }
+
+    const { count } = await prisma.taskPeremajaan.deleteMany({ where });
+    return count;
+  }
 }
 
 export default new TaskRepository();

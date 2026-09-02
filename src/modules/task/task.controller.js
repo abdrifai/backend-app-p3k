@@ -1,5 +1,5 @@
 import taskService from './task.service.js';
-import { autoAssignSchema, manualAssignSchema, completeTaskSchema } from './task.validation.js';
+import { autoAssignSchema, manualAssignSchema, completeTaskSchema, assignByPegawaiSchema, unassignPegawaiSchema } from './task.validation.js';
 import { asyncHandler } from '../../middlewares/error.middleware.js';
 
 class TaskController {
@@ -139,6 +139,145 @@ class TaskController {
   resetAllTasks = asyncHandler(async (req, res) => {
     const result = await taskService.resetAllTasks();
     
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: { totalRevoked: result.totalRevoked }
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/tasks/pegawai-list:
+   *   get:
+   *     tags: [Tasks]
+   *     summary: Cari data pegawai dan status penugasan tugas peremajaan
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: statusPenugasan
+   *         schema:
+   *           type: string
+   *           enum: [ALL, UNASSIGNED, ASSIGNED, COMPLETED]
+   *       - in: query
+   *         name: kegiatan
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: unorIndukId
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil daftar pegawai untuk penugasan
+   */
+  searchPegawai = asyncHandler(async (req, res) => {
+    const result = await taskService.searchPegawaiForTask(req.query);
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil daftar pegawai untuk penugasan task',
+      ...result
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/tasks/assign/by-pegawai:
+   *   post:
+   *     tags: [Tasks]
+   *     summary: Tugaskan pegawai tertentu ke user verifikator
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [dataP3kIds, userId]
+   *             properties:
+   *               dataP3kIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *               userId:
+   *                 type: string
+   *               kegiatan:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Berhasil menugaskan task
+   */
+  assignByPegawai = asyncHandler(async (req, res) => {
+    const { error, value } = assignByPegawaiSchema.validate(req.body);
+    if (error) {
+      const err = new Error(error.details[0].message);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const result = await taskService.assignByPegawai(value.dataP3kIds, value.userId, value.kegiatan);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: { totalAssigned: result.totalAssigned }
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/tasks/unassign-pegawai:
+   *   post:
+   *     tags: [Tasks]
+   *     summary: Tarik tugas peremajaan dari pegawai tertentu
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               dataP3kIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *               taskIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *               kegiatan:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Berhasil menarik tugas
+   */
+  unassignPegawai = asyncHandler(async (req, res) => {
+    const { error, value } = unassignPegawaiSchema.validate(req.body);
+    if (error) {
+      const err = new Error(error.details[0].message);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const result = await taskService.unassignPegawai(value);
+
     res.status(200).json({
       success: true,
       message: result.message,

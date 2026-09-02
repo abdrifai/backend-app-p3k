@@ -16,6 +16,17 @@ export const manualAssignSchema = Joi.object({
   kegiatan: Joi.string().optional().default('Umum')
 });
 
+export const assignByPegawaiSchema = Joi.object({
+  dataP3kIds: Joi.array().items(Joi.string().uuid()).min(1).required(),
+  userId: Joi.string().uuid().required(),
+  kegiatan: Joi.string().optional().allow('', null).default('Umum')
+});
+
+export const unassignPegawaiSchema = Joi.object({
+  dataP3kIds: Joi.array().items(Joi.string().uuid()).optional(),
+  taskIds: Joi.array().items(Joi.string().uuid()).optional()
+}).or('dataP3kIds', 'taskIds');
+
 export const completeTaskSchema = Joi.object({
   // Only validating fields that exist in DataP3k that are expected to be updated
   nama: Joi.string().allow('', null),

@@ -17,8 +17,11 @@ router.get('/report', taskController.getReport);
 
 // ====== ADMIN ROUTES ======
 router.use(authorize('admin'));
+router.get('/pegawai-list', taskController.searchPegawai);
 router.post('/assign/auto', taskController.autoAssign);
 router.post('/assign/manual', taskController.manualAssign);
+router.post('/assign/by-pegawai', taskController.assignByPegawai);
+router.post('/unassign-pegawai', taskController.unassignPegawai);
 router.post('/reset-all', taskController.resetAllTasks);
 router.get('/unassigned-count', taskController.getUnassignedCount);
 router.post('/reset/:userId', taskController.resetTasks);

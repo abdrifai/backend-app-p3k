@@ -137,6 +137,64 @@ class TaskService {
       totalRevoked
     };
   }
+
+  async searchPegawaiForTask(query = {}) {
+    const page = parseInt(query.page) || 1;
+    const limit = parseInt(query.limit) || 10;
+    const search = query.search || '';
+    const kegiatan = query.kegiatan || '';
+    const statusPenugasan = query.statusPenugasan || 'ALL';
+    const unorIndukId = query.unorIndukId || '';
+
+    const skip = (page - 1) * limit;
+
+    const { data, total } = await taskRepository.searchPegawaiForTask({
+      search,
+      kegiatan,
+      statusPenugasan,
+      unorIndukId,
+      skip,
+      take: limit
+    });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1
+      }
+    };
+  }
+
+  async assignByPegawai(dataP3kIds, userId, kegiatan = 'Umum') {
+    if (!dataP3kIds || dataP3kIds.length === 0) {
+      const error = new Error('Pilih minimal 1 data pegawai');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!userId) {
+      const error = new Error('Pilih user yang akan ditugaskan');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const totalAssigned = await taskRepository.assignTasksByPegawai(dataP3kIds, userId, kegiatan);
+    return {
+      message: `Berhasil menugaskan ${totalAssigned} data pegawai ke user.`,
+      totalAssigned
+    };
+  }
+
+  async unassignPegawai({ dataP3kIds = [], taskIds = [], kegiatan = '' }) {
+    const totalRevoked = await taskRepository.unassignTasksByPegawai({ dataP3kIds, taskIds, kegiatan });
+    return {
+      message: `Berhasil menarik tugas dari ${totalRevoked} data pegawai.`,
+      totalRevoked
+    };
+  }
 }
 
 export default new TaskService();
