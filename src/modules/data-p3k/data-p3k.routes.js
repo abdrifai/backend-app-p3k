@@ -24,6 +24,7 @@ router.get('/differences', DataP3kController.getDifferences);
 router.get('/mapping-unor', DataP3kController.getMappingUnor);
 router.patch('/:id/mapping-unor', DataP3kController.updateMappingUnor);
 router.post('/bulk-mapping-unor', DataP3kController.bulkUpdateMappingUnor);
+router.get('/rekap-jabatan', DataP3kController.getRekapJabatan);
 router.get('/', DataP3kController.getAllDataP3k);
 router.get('/:nipBaru', DataP3kController.getByNipBaru);
 router.put('/:nipBaru', DataP3kController.updateData);

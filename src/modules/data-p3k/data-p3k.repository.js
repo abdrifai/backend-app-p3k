@@ -49,7 +49,7 @@ export class DataP3kRepository {
     return totalInserted;
   }
 
-  static _buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }) {
+  static _buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }) {
     let where = { AND: [{ isDeleted: false }] };
 
     if (search) {
@@ -103,6 +103,10 @@ export class DataP3kRepository {
       where.AND.push({ jenisJabatanNama: jenisJabatan });
     }
 
+    if (jabatanNama) {
+      where.AND.push({ jabatanNama: jabatanNama });
+    }
+
     if (where.AND.length === 0) {
       return {};
     }
@@ -110,8 +114,8 @@ export class DataP3kRepository {
     return where;
   }
 
-  static async findAll({ skip, take, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }) {
-    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
+  static async findAll({ skip, take, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }) {
+    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
 
     return prisma.dataP3k.findMany({
       where,
@@ -128,9 +132,40 @@ export class DataP3kRepository {
     });
   }
 
-  static async count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan } = {}) {
-    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
+  static async count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama } = {}) {
+    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
     return prisma.dataP3k.count({ where });
+  }
+
+  static async getRekapJabatan({ search = '', statusPensiun = 'AKTIF' } = {}) {
+    const where = {
+      isDeleted: false,
+      jabatanNama: { not: null }
+    };
+    if (statusPensiun) {
+      where.statusPensiun = statusPensiun;
+    }
+    if (search) {
+      where.jabatanNama = { contains: search };
+    }
+
+    const results = await prisma.dataP3k.groupBy({
+      by: ['jabatanNama'],
+      where,
+      _count: {
+        id: true
+      },
+      orderBy: {
+        jabatanNama: 'asc'
+      }
+    });
+
+    return results
+      .filter(r => r.jabatanNama && r.jabatanNama.trim() !== '')
+      .map(r => ({
+        jabatanNama: r.jabatanNama,
+        total: r._count.id
+      }));
   }
 
   static async groupByField(field, additionalWhere = {}, orderBy = null) {

@@ -83,6 +83,10 @@ export class DataP3kController {
    *         name: jenisJabatan
    *         schema:
    *           type: string
+   *       - in: query
+   *         name: jabatanNama
+   *         schema:
+   *           type: string
    *     responses:
    *       200:
    *         description: Berhasil mengambil data P3K
@@ -100,14 +104,48 @@ export class DataP3kController {
     const pendidikan = req.query.pendidikan || '';
     const golongan = req.query.golongan || '';
     const jenisJabatan = req.query.jenisJabatan || '';
+    const jabatanNama = req.query.jabatanNama || '';
 
-    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan });
+    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
 
     res.status(200).json({
       success: true,
       message: 'Berhasil mengambil Data P3K utama',
       data: result.data,
       meta: result.meta
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/data-p3k/rekap-jabatan:
+   *   get:
+   *     tags: [Data P3K]
+   *     summary: Ambil daftar ringkasan jabatan dan total pegawainya
+   *     parameters:
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: statusPensiun
+   *         schema:
+   *           type: string
+   *           default: AKTIF
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil rekap jabatan
+   */
+  static getRekapJabatan = asyncHandler(async (req, res) => {
+    const search = req.query.search || '';
+    const statusPensiun = req.query.statusPensiun || 'AKTIF';
+
+    const result = await DataP3kService.getRekapJabatan({ search, statusPensiun });
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil rekap jabatan',
+      data: result
     });
   });
 

@@ -14,12 +14,12 @@ export class DataP3kService {
     }
   }
 
-  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '' }) {
+  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '', jabatanNama = '' }) {
     const skip = (page - 1) * limit;
 
     const [data, totalCount, totalActive] = await Promise.all([
-      DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }),
-      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan }),
+      DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
+      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
       DataP3kRepository.getTotalCount({ statusPensiun: 'AKTIF' })
     ]);
 
@@ -33,6 +33,10 @@ export class DataP3kService {
         totalPages: Math.ceil(totalCount / limit)
       }
     };
+  }
+
+  static async getRekapJabatan({ search = '', statusPensiun = 'AKTIF' } = {}) {
+    return DataP3kRepository.getRekapJabatan({ search, statusPensiun });
   }
 
   static async getRetirementReport({ year, page = 1, limit = 10, search = '' }) {

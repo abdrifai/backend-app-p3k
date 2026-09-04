@@ -183,6 +183,15 @@ export const MENU_CATALOG = [
     order: 5.2
   },
   {
+    key: 'laporan-rekap-jabatan',
+    label: 'Rekap Jabatan',
+    path: '/laporan/rekap-jabatan',
+    icon: 'ri-briefcase-line',
+    parentKey: 'laporan',
+    group: 'Laporan & Rekapitulasi',
+    order: 5.25
+  },
+  {
     key: 'laporan-estimasi-pensiun',
     label: 'Estimasi Pensiun',
     path: '/estimasi-pensiun',
@@ -358,6 +367,7 @@ export const DEFAULT_PERMISSIONS = {
     'laporan',
     'laporan-perpanjangan',
     'laporan-unit-kerja',
+    'laporan-rekap-jabatan',
     'laporan-statistik-task'
   ],
   pensiun: [
