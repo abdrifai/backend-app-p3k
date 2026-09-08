@@ -335,7 +335,15 @@ export class PerpanjanganService {
     }
 
     const updated = await PerpanjanganRepository.updateUsulanStatus(id, {
-      status: 'UPLOAD_SRIKANDI'
+      status: 'UPLOAD_SRIKANDI',
+      statusSrikandi: 'VERIFIKASI_KABAN'
+    });
+
+    await PerpanjanganRepository.createSrikandiHistory({
+      usulanId: id,
+      status: 'VERIFIKASI_KABAN',
+      keterangan: 'Dokumen diproses ke Srikandi untuk Verifikasi Kaban',
+      createdById: userId
     });
 
     if (userId) {
@@ -343,11 +351,69 @@ export class PerpanjanganService {
         nipBaru: usulan.dataP3k?.nipBaru,
         namaPegawai: usulan.dataP3k?.nama,
         nomorKontrak: usulan.nomorKontrak,
-        status: 'UPLOAD_SRIKANDI'
+        status: 'UPLOAD_SRIKANDI',
+        statusSrikandi: 'VERIFIKASI_KABAN'
       });
     }
 
     return updated;
+  }
+
+  static async updateSrikandiStatus(id, { status, keterangan }, userId) {
+    const usulan = await PerpanjanganRepository.findUsulanById(id);
+    if (!usulan || usulan.isDeleted) {
+      const error = new Error('Usulan tidak ditemukan');
+      error.status = 404;
+      throw error;
+    }
+
+    const updated = await PerpanjanganRepository.updateStatusSrikandi(id, status);
+
+    const history = await PerpanjanganRepository.createSrikandiHistory({
+      usulanId: id,
+      status,
+      keterangan: keterangan || null,
+      createdById: userId
+    });
+
+    if (userId) {
+      activityLogService.logActivity(userId, 'UPDATE_STATUS_SRIKANDI', 'UsulanPerpanjangan', id, {
+        nipBaru: usulan.dataP3k?.nipBaru,
+        namaPegawai: usulan.dataP3k?.nama,
+        nomorKontrak: usulan.nomorKontrak,
+        statusSrikandi: status,
+        keterangan
+      });
+    }
+
+    return {
+      usulan: updated,
+      history
+    };
+  }
+
+  static async getSrikandiTimeline(id) {
+    const usulan = await PerpanjanganRepository.findUsulanById(id);
+    if (!usulan || usulan.isDeleted) {
+      const error = new Error('Usulan tidak ditemukan');
+      error.status = 404;
+      throw error;
+    }
+
+    const timeline = await PerpanjanganRepository.getSrikandiTimeline(id);
+    return {
+      usulan: {
+        id: usulan.id,
+        status: usulan.status,
+        statusSrikandi: usulan.statusSrikandi,
+        nomorKontrak: usulan.nomorKontrak,
+        namaPegawai: usulan.dataP3k?.nama,
+        nipBaru: usulan.dataP3k?.nipBaru,
+        jabatanNama: usulan.dataP3k?.jabatanNama,
+        unorNama: usulan.dataP3k?.unorNama
+      },
+      timeline
+    };
   }
 
   static async deleteUsulan(id, userId) {

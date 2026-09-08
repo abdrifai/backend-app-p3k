@@ -41,3 +41,22 @@ export const createTemplateSchema = Joi.object({
   }),
   deskripsi: Joi.string().allow('', null).optional()
 });
+
+export const updateSrikandiStatusSchema = Joi.object({
+  status: Joi.string()
+    .valid(
+      'VERIFIKASI_KABAN',
+      'VERIFIKASI_SEKDA',
+      'TTE_PPPK',
+      'TTE_BUPATI',
+      'TOLAK_TIDAK_DITERUSKAN',
+      'TOLAK_KONSEPTOR'
+    )
+    .required()
+    .messages({
+      'any.required': 'Status Srikandi wajib dipilih',
+      'any.only': 'Status Srikandi tidak valid'
+    }),
+  keterangan: Joi.string().allow('', null).optional()
+});
+

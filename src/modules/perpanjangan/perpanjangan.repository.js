@@ -86,6 +86,15 @@ export class PerpanjanganRepository {
           },
           editedBy: {
             select: { id: true, username: true, namaLengkap: true, role: true, foto: true }
+          },
+          srikandiHistories: {
+            include: {
+              createdBy: {
+                select: { id: true, username: true, namaLengkap: true, foto: true }
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -112,7 +121,15 @@ export class PerpanjanganRepository {
             unorInduk: { select: { nama: true } }
           }
         },
-        templateKontrak: true
+        templateKontrak: true,
+        srikandiHistories: {
+          include: {
+            createdBy: {
+              select: { id: true, username: true, namaLengkap: true, foto: true }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
       }
     });
   }
@@ -419,6 +436,43 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
 
     return { records: legacyRecords };
   }
+
+  // --- Srikandi Timeline & History ---
+  static async createSrikandiHistory({ usulanId, status, keterangan, createdById }) {
+    return prisma.srikandiHistory.create({
+      data: {
+        usulanId,
+        status,
+        keterangan,
+        createdById
+      },
+      include: {
+        createdBy: {
+          select: { id: true, username: true, namaLengkap: true, foto: true }
+        }
+      }
+    });
+  }
+
+  static async getSrikandiTimeline(usulanId) {
+    return prisma.srikandiHistory.findMany({
+      where: { usulanId },
+      include: {
+        createdBy: {
+          select: { id: true, username: true, namaLengkap: true, foto: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  static async updateStatusSrikandi(id, statusSrikandi) {
+    return prisma.usulanPerpanjangan.update({
+      where: { id },
+      data: { statusSrikandi }
+    });
+  }
 }
+
 
 

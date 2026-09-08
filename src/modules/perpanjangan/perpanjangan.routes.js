@@ -19,6 +19,8 @@ router.post('/usulan/:id/approve', PerpanjanganController.approveUsulan);
 router.post('/usulan/:id/reject', PerpanjanganController.rejectUsulan);
 router.post('/usulan/:id/generate', PerpanjanganController.generateDocument);
 router.post('/usulan/:id/srikandi', authenticate, PerpanjanganController.processToSrikandi);
+router.get('/usulan/:id/srikandi-timeline', authenticate, PerpanjanganController.getSrikandiTimeline);
+router.post('/usulan/:id/srikandi-status', authenticate, PerpanjanganController.updateSrikandiStatus);
 router.post('/usulan/:id/upload-final', authenticate, uploadUsulanFinal.single('file'), PerpanjanganController.uploadFinalDocument);
 router.delete('/usulan/:id', PerpanjanganController.deleteUsulan);
 router.delete('/usulan/:id/approved', authenticate, authorize('admin', 'ADMIN', 'Admin'), PerpanjanganController.deleteApprovedUsulan);

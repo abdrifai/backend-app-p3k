@@ -1,6 +1,6 @@
 import { PerpanjanganService } from './perpanjangan.service.js';
 import { asyncHandler } from '../../middlewares/error.middleware.js';
-import { createUsulanSchema, rejectUsulanSchema, createTemplateSchema } from './perpanjangan.validation.js';
+import { createUsulanSchema, rejectUsulanSchema, createTemplateSchema, updateSrikandiStatusSchema } from './perpanjangan.validation.js';
 
 export class PerpanjanganController {
   // ===== TEMPLATE =====
@@ -425,6 +425,68 @@ export class PerpanjanganController {
     res.status(200).json({
       success: true,
       message: 'Usulan berhasil diproses ke tahap Upload Srikandi.',
+      data: result
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/perpanjangan/usulan/{id}/srikandi-status:
+   *   post:
+   *     tags: [Perpanjangan Kontrak]
+   *     summary: Update status dan tahapan proses Srikandi
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: string }
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [status]
+   *             properties:
+   *               status: { type: string, enum: [VERIFIKASI_KABAN, VERIFIKASI_SEKDA, TTE_PPPK, TTE_BUPATI, TOLAK_TIDAK_DITERUSKAN, TOLAK_KONSEPTOR] }
+   *               keterangan: { type: string }
+   *     responses:
+   *       200:
+   *         description: Status Srikandi berhasil diperbarui
+   */
+  static updateSrikandiStatus = asyncHandler(async (req, res) => {
+    const { error, value } = updateSrikandiStatusSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ success: false, message: error.details[0].message, data: null });
+    }
+    const result = await PerpanjanganService.updateSrikandiStatus(req.params.id, value, req.user?.id);
+    res.status(200).json({
+      success: true,
+      message: 'Status Srikandi berhasil diperbarui.',
+      data: result
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/perpanjangan/usulan/{id}/srikandi-timeline:
+   *   get:
+   *     tags: [Perpanjangan Kontrak]
+   *     summary: Ambil linimasa / riwayat status Srikandi usulan
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: string }
+   *     responses:
+   *       200:
+   *         description: Linimasa status Srikandi berhasil diambil
+   */
+  static getSrikandiTimeline = asyncHandler(async (req, res) => {
+    const result = await PerpanjanganService.getSrikandiTimeline(req.params.id);
+    res.status(200).json({
+      success: true,
+      message: 'Linimasa status Srikandi berhasil diambil.',
       data: result
     });
   });

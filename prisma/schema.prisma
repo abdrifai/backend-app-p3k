@@ -28,6 +28,7 @@ model User {
   tasks               TaskPeremajaan[]     @relation("PeremajaanAssignmentUser")
   usulanTasks         TaskUsulan[]         @relation("UsulanAssignmentUser")
   usulanEditedTasks   UsulanPerpanjangan[] @relation("UsulanEditor")
+  srikandiHistories   SrikandiHistory[]    @relation("SrikandiHistoryCreator")
   rekapKinerja        RekapKinerjaHarian[]
 
   @@map("users")
@@ -262,7 +263,7 @@ model DataP3kParuhWaktu {
   unorId                String?
   unorNama              String?
   unorIndukId           String?
-  unorInduk             RefUnor?    @relation(fields: [unorIndukId], references: [id])
+  unorInduk             RefUnor?    @relation(fields: [unorIndukId], references: [id], map: "data_p3k_paruh_waktu_unorIndukId_fkey")
   instansiIndukId       String?
   instansiIndukNama     String?
   instansiKerjaId       String?
@@ -281,7 +282,7 @@ model DataP3kParuhWaktu {
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
-  @@index([unorIndukId], map: "data_p3k_paruh_waktu_unorIndukId_idx")
+  @@index([unorIndukId], map: "data_p3k_paruh_waktu_unorIndukId_fkey")
   @@index([unorNama])
   @@index([golAkhirNama])
   @@index([nama])
@@ -319,7 +320,7 @@ model RefUnor {
   nama              String
   kode              String?
   parentId          String?             @map("parent_id")
-  parent            RefUnor?            @relation("UnorHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  parent            RefUnor?            @relation("UnorHierarchy", fields: [parentId], references: [id], onDelete: Restrict, map: "ref_unor_parent_id_fkey")
   children          RefUnor[]           @relation("UnorHierarchy")
   level             Int                 @default(1)
   jenis             String?             @default("INDUK")
@@ -520,15 +521,35 @@ model UsulanPerpanjangan {
   tanggalTtd        String?
   finalFileUrl      String?
   kontrakKe         Int?
-  dataP3k           DataP3k          @relation(fields: [dataP3kId], references: [id])
-  editedBy          User?            @relation("UsulanEditor", fields: [editedById], references: [id])
-  templateKontrak   TemplateKontrak? @relation(fields: [templateKontrakId], references: [id])
+  statusSrikandi    String?
+  dataP3k           DataP3k            @relation(fields: [dataP3kId], references: [id])
+  editedBy          User?              @relation("UsulanEditor", fields: [editedById], references: [id])
+  templateKontrak   TemplateKontrak?   @relation(fields: [templateKontrakId], references: [id])
+  srikandiHistories SrikandiHistory[]
 
   @@index([dataP3kId])
   @@index([status])
+  @@index([statusSrikandi])
   @@index([editedById], map: "usulan_perpanjangan_editedById_fkey")
   @@index([templateKontrakId], map: "usulan_perpanjangan_templateKontrakId_fkey")
   @@map("usulan_perpanjangan")
+}
+
+model SrikandiHistory {
+  id          String             @id @default(uuid())
+  usulanId    String
+  status      String
+  keterangan  String?            @db.Text
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  usulan      UsulanPerpanjangan @relation(fields: [usulanId], references: [id], onDelete: Cascade)
+  createdBy   User?              @relation("SrikandiHistoryCreator", fields: [createdById], references: [id])
+
+  @@index([usulanId])
+  @@index([createdById])
+  @@map("srikandi_history")
 }
 
 model TabelGaji {
