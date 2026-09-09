@@ -29,6 +29,7 @@ export const createMasalahPegawaiSchema = Joi.object({
 
 export const updateMasalahPegawaiSchema = Joi.object({
   nomorKasus: Joi.string().trim().max(100).allow('', null).optional(),
+  dataP3kId: Joi.string().optional(),
   kategoriId: Joi.string().optional(),
   judul: Joi.string().trim().max(255).optional(),
   tanggalKejadian: Joi.date().iso().allow(null, '').optional(),
