@@ -369,7 +369,7 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
       OR: [
         { entityType: 'UsulanPerpanjangan' },
         { entityType: 'TaskUsulan' },
-        { action: { in: ['CREATE_USULAN', 'APPROVE_USULAN', 'PROCESS_SRIKANDI', 'FINALIZE_USULAN', 'REJECT_USULAN', 'UPDATE_USULAN', 'DELETE_APPROVED_USULAN'] } }
+        { action: { in: ['CREATE_USULAN', 'APPROVE_USULAN', 'PROCESS_SRIKANDI', 'UPDATE_STATUS_SRIKANDI', 'FINALIZE_USULAN', 'REJECT_USULAN', 'UPDATE_USULAN', 'DELETE_APPROVED_USULAN'] } }
       ]
     };
     if (userId) logWhere.userId = userId;
@@ -388,7 +388,7 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
       let records = activityLogs.map(log => {
         let mappedStatus = 'PENDING';
         if (log.action === 'APPROVE_USULAN') mappedStatus = 'APPROVED';
-        else if (log.action === 'PROCESS_SRIKANDI') mappedStatus = 'UPLOAD_SRIKANDI';
+        else if (log.action === 'PROCESS_SRIKANDI' || log.action === 'UPDATE_STATUS_SRIKANDI') mappedStatus = 'UPLOAD_SRIKANDI';
         else if (log.action === 'FINALIZE_USULAN') mappedStatus = 'SELESAI';
         else if (log.action === 'REJECT_USULAN') mappedStatus = 'REJECTED';
         else if (log.action === 'CREATE_USULAN' || log.action === 'UPDATE_USULAN') mappedStatus = 'PENDING';
