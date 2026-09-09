@@ -30,6 +30,8 @@ model User {
   usulanEditedTasks   UsulanPerpanjangan[] @relation("UsulanEditor")
   srikandiHistories   SrikandiHistory[]    @relation("SrikandiHistoryCreator")
   rekapKinerja        RekapKinerjaHarian[]
+  masalahPegawaiCreated MasalahPegawai[]   @relation("MasalahPegawaiCreator")
+  riwayatPenangananCreated RiwayatPenangananMasalah[] @relation("RiwayatPenangananUser")
 
   @@map("users")
 }
@@ -444,6 +446,7 @@ model DataP3k {
   tasksUsulan           TaskUsulan[]
   usulanPerpanjangan    UsulanPerpanjangan[]
   mappingUnor           MappingUnor?
+  masalahPegawai        MasalahPegawai[]
 
   @@index([arsipSkPensiunId], map: "data_p3k_arsipSkPensiunId_fkey")
   @@index([arsipSkCpnsId], map: "data_p3k_arsipSkCpnsId_fkey")
@@ -702,4 +705,95 @@ model RekapKinerjaHarian {
   @@index([tanggal])
   @@index([userId])
   @@map("rekap_kinerja_harian")
+}
+
+model KategoriMasalah {
+  id              String            @id @default(uuid())
+  kode            String            @unique
+  nama            String
+  deskripsi       String?           @db.Text
+  warnaBadge      String?           @default("#ef4444")
+  isActive        Boolean           @default(true) @map("is_active")
+  isDeleted       Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  masalahPegawai  MasalahPegawai[]
+
+  @@map("kategori_masalah")
+}
+
+model MasalahPegawai {
+  id                  String                 @id @default(uuid())
+  nomorKasus          String                 @unique
+  judul               String
+  tanggalKejadian     DateTime?              @db.Date
+  tingkatKeparahan    String                 @default("SEDANG")
+  status              String                 @default("OPEN")
+  deskripsi           String                 @db.LongText
+  ringkasanMasalah    String?                @db.VarChar(500)
+  tindakLanjut        String?                @db.Text
+  catatanPenyelesaian String?                @db.Text
+  tanggalSelesai      DateTime?
+
+  dataP3kId           String
+  dataP3k             DataP3k                @relation(fields: [dataP3kId], references: [id], onDelete: Restrict)
+
+  kategoriId          String
+  kategori            KategoriMasalah        @relation(fields: [kategoriId], references: [id], onDelete: Restrict)
+
+  createdById         String
+  createdBy           User                   @relation("MasalahPegawaiCreator", fields: [createdById], references: [id])
+
+  lampiran            LampiranMasalah[]
+  riwayatPenanganan   RiwayatPenangananMasalah[]
+
+  isDeleted           Boolean                @default(false)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@index([dataP3kId])
+  @@index([kategoriId])
+  @@index([createdById])
+  @@index([status])
+  @@index([tingkatKeparahan])
+  @@map("masalah_pegawai")
+}
+
+model LampiranMasalah {
+  id               String          @id @default(uuid())
+  masalahPegawaiId String
+  namaFile         String
+  fileUrl          String
+  fileType         String?
+  fileSize         Int?
+  keterangan       String?
+  isDeleted        Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  masalahPegawai   MasalahPegawai  @relation(fields: [masalahPegawaiId], references: [id], onDelete: Cascade)
+
+  @@index([masalahPegawaiId])
+  @@map("lampiran_masalah")
+}
+
+model RiwayatPenangananMasalah {
+  id               String          @id @default(uuid())
+  masalahPegawaiId String
+  statusSebelumnya String?
+  statusBaru       String
+  tindakan         String
+  keterangan       String?         @db.Text
+  userId           String
+  isDeleted        Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  masalahPegawai   MasalahPegawai  @relation(fields: [masalahPegawaiId], references: [id], onDelete: Cascade)
+  user             User            @relation("RiwayatPenangananUser", fields: [userId], references: [id])
+
+  @@index([masalahPegawaiId])
+  @@index([userId])
+  @@map("riwayat_penanganan_masalah")
 }

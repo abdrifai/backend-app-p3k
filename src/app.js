@@ -22,6 +22,8 @@ import { activityLogRoutes } from './modules/activity-log/activityLog.routes.js'
 import backupRoutes from './modules/backup/backup.routes.js';
 import roleMenuRoutes from './modules/role-menu/role-menu.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { kategoriMasalahRoutes } from './modules/kategori-masalah/kategori-masalah.routes.js';
+import { masalahPegawaiRoutes } from './modules/masalah-pegawai/masalah-pegawai.routes.js';
 import path from 'path';
 
 // Initialize Express
@@ -88,6 +90,8 @@ app.use('/api/task-field-configs', taskFieldConfigRoutes);
 app.use('/api/v1/activity-logs', activityLogRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/role-menus', roleMenuRoutes);
+app.use('/api/v1/kategori-masalah', kategoriMasalahRoutes);
+app.use('/api/v1/masalah-pegawai', masalahPegawaiRoutes);
 
 // 404 Handler
 app.use(notFoundHandler);
