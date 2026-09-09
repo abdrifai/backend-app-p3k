@@ -121,6 +121,7 @@ export class PerpanjanganController {
     const page = req.query.page === 'all' ? 1 : (parseInt(req.query.page) || 1);
     const limit = req.query.limit === 'all' ? 'all' : (parseInt(req.query.limit) || 10);
     const status = req.query.status || '';
+    const statusSrikandi = req.query.statusSrikandi || '';
     const search = req.query.search || '';
     const unorIndukId = req.query.unorIndukId || '';
     const isLaporan = req.query.isLaporan === 'true' || req.query.ignoreUserFilter === 'true' || req.query.all === 'true';
@@ -130,6 +131,7 @@ export class PerpanjanganController {
       page, 
       limit, 
       status, 
+      statusSrikandi,
       search,
       unorIndukId,
       userId: isLaporan ? null : req.user?.id,

@@ -29,7 +29,7 @@ export class PerpanjanganRepository {
   }
 
   // --- Usulan CRUD ---
-  static async findAllUsulan({ skip, take, status, search, unorIndukId, userId, isAdmin }) {
+  static async findAllUsulan({ skip, take, status, statusSrikandi, search, unorIndukId, userId, isAdmin }) {
     const where = { AND: [{ isDeleted: false }] };
     
     // Visibility restriction: non-admin only sees created/assigned records
@@ -44,6 +44,13 @@ export class PerpanjanganRepository {
 
     if (status) {
       where.AND.push({ status });
+    }
+    if (statusSrikandi) {
+      if (statusSrikandi === 'NONE' || statusSrikandi === 'null') {
+        where.AND.push({ statusSrikandi: null });
+      } else if (statusSrikandi !== 'ALL' && statusSrikandi !== 'SEMUA') {
+        where.AND.push({ statusSrikandi });
+      }
     }
     if (unorIndukId) {
       if (unorIndukId === 'null' || unorIndukId === 'unmapped') {

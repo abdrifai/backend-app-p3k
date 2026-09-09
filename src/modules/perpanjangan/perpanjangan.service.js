@@ -31,13 +31,13 @@ export class PerpanjanganService {
   }
 
   // --- Usulan ---
-  static async getAllUsulan({ page = 1, limit = 10, status = '', search = '', unorIndukId = '', userId, isAdmin }) {
+  static async getAllUsulan({ page = 1, limit = 10, status = '', statusSrikandi = '', search = '', unorIndukId = '', userId, isAdmin }) {
     const isAll = limit === 'all';
     const parsedPage = isAll ? 1 : (parseInt(page) || 1);
     const parsedLimit = isAll ? 1000000 : (parseInt(limit) || 10);
     const skip = isAll ? 0 : (parsedPage - 1) * parsedLimit;
 
-    const { data, total } = await PerpanjanganRepository.findAllUsulan({ skip, take: parsedLimit, status, search, unorIndukId, userId, isAdmin });
+    const { data, total } = await PerpanjanganRepository.findAllUsulan({ skip, take: parsedLimit, status, statusSrikandi, search, unorIndukId, userId, isAdmin });
     
     // Map with additional calculated data (gaji, etc)
     const mappedData = await Promise.all(data.map(async (u) => {
