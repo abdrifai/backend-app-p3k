@@ -230,7 +230,7 @@ export class DataP3kService {
     };
   }
 
-  static async setPensiun({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
+  static async setPensiun({ nipBaru, nomorSk, tanggalSk, fileUrl, jenisPensiunId }) {
     const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
     if (!dataP3k) {
       const error = new Error('Data P3K tidak ditemukan');
