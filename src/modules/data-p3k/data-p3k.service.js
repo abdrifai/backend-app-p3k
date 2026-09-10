@@ -14,8 +14,113 @@ export class DataP3kService {
     }
   }
 
-  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '', jabatanNama = '' }) {
+  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '', jabatanNama = '', kategori = 'ALL' }) {
     const skip = (page - 1) * limit;
+
+    if (kategori === 'PARUH_WAKTU') {
+      const where = { isDeleted: false };
+      if (statusPensiun) where.statusPensiun = statusPensiun;
+      if (search) {
+        where.OR = [
+          { nama: { contains: search } },
+          { nipBaru: { contains: search } },
+          { unorNama: { contains: search } }
+        ];
+      }
+      const [data, totalCount, totalActive] = await Promise.all([
+        prisma.dataP3kParuhWaktu.findMany({
+          where,
+          skip,
+          take: limit,
+          include: { unorInduk: true, arsipSkPensiun: true, jenisPensiun: true },
+          orderBy: { nama: 'asc' }
+        }),
+        prisma.dataP3kParuhWaktu.count({ where }),
+        prisma.dataP3kParuhWaktu.count({ where: { isDeleted: false, statusPensiun: 'AKTIF' } })
+      ]);
+
+      return {
+        data: data.map(d => ({ ...d, kategoriPegawai: 'PARUH_WAKTU' })),
+        meta: {
+          total: totalCount,
+          totalActive,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit)
+        }
+      };
+    }
+
+    if (kategori === 'PENUH_WAKTU') {
+      const [data, totalCount, totalActive] = await Promise.all([
+        DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
+        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
+        DataP3kRepository.getTotalCount({ statusPensiun: 'AKTIF' })
+      ]);
+
+      return {
+        data: data.map(d => ({ ...d, kategoriPegawai: 'PENUH_WAKTU' })),
+        meta: {
+          total: totalCount,
+          totalActive,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit)
+        }
+      };
+    }
+
+    // Default: If statusPensiun === 'AKTIF' and kategori === 'ALL', combine both
+    if (statusPensiun === 'AKTIF') {
+      const whereP3k = { AND: [{ isDeleted: false, statusPensiun: 'AKTIF' }] };
+      const whereParuh = { AND: [{ isDeleted: false, statusPensiun: 'AKTIF' }] };
+      if (search) {
+        const sCond = [
+          { nama: { contains: search } },
+          { nipBaru: { contains: search } },
+          { unorNama: { contains: search } }
+        ];
+        whereP3k.AND.push({ OR: sCond });
+        whereParuh.AND.push({ OR: sCond });
+      }
+
+      const [totalP3k, totalParuh] = await Promise.all([
+        prisma.dataP3k.count({ where: whereP3k }),
+        prisma.dataP3kParuhWaktu.count({ where: whereParuh })
+      ]);
+      const totalCount = totalP3k + totalParuh;
+
+      const [dataP3k, dataParuh] = await Promise.all([
+        prisma.dataP3k.findMany({
+          where: whereP3k,
+          take: skip + limit,
+          include: { unorInduk: true, arsipSkPensiun: true, jenisPensiun: true },
+          orderBy: { nama: 'asc' }
+        }),
+        prisma.dataP3kParuhWaktu.findMany({
+          where: whereParuh,
+          take: skip + limit,
+          include: { unorInduk: true, arsipSkPensiun: true, jenisPensiun: true },
+          orderBy: { nama: 'asc' }
+        })
+      ]);
+
+      const combined = [
+        ...dataP3k.map(d => ({ ...d, kategoriPegawai: 'PENUH_WAKTU' })),
+        ...dataParuh.map(d => ({ ...d, kategoriPegawai: 'PARUH_WAKTU' }))
+      ].sort((a, b) => a.nama.localeCompare(b.nama));
+
+      return {
+        data: combined.slice(skip, skip + limit),
+        meta: {
+          total: totalCount,
+          totalActive: totalCount,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit)
+        }
+      };
+    }
 
     const [data, totalCount, totalActive] = await Promise.all([
       DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
@@ -24,7 +129,7 @@ export class DataP3kService {
     ]);
 
     return {
-      data,
+      data: data.map(d => ({ ...d, kategoriPegawai: 'PENUH_WAKTU' })),
       meta: {
         total: totalCount,
         totalActive,
@@ -149,9 +254,9 @@ export class DataP3kService {
   }
   static setPension = this.setPensiun;
 
-  static async getAllPensiun({ page = 1, limit = 10, search = '', jenisPensiunId = '' }) {
+  static async getAllPensiun({ page = 1, limit = 10, search = '', jenisPensiunId = '', kategori = 'ALL' }) {
     const skip = (page - 1) * limit;
-    const { data, total } = await DataP3kRepository.findAllPensiun({ skip, take: limit, search, jenisPensiunId });
+    const { data, total } = await DataP3kRepository.findAllPensiun({ skip, take: limit, search, jenisPensiunId, kategori });
 
     return {
       data,
@@ -166,14 +271,14 @@ export class DataP3kService {
   static getAllPensioned = this.getAllPensiun;
 
   static async updatePensiun({ nipBaru, nomorSk, tanggalSk, fileUrl, jenisPensiunId }) {
-    const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
-    if (!dataP3k) {
-      const error = new Error('Data P3K tidak ditemukan');
+    const pegawai = await DataP3kRepository.findByNipBaru(nipBaru);
+    if (!pegawai) {
+      const error = new Error('Data Pegawai PPPK tidak ditemukan');
       error.status = 404;
       throw error;
     }
 
-    if (dataP3k.statusPensiun !== 'PENSIUN') {
+    if (pegawai.statusPensiun !== 'PENSIUN') {
       const error = new Error('Pegawai belum berstatus PENSIUN');
       error.status = 400;
       throw error;
@@ -190,14 +295,14 @@ export class DataP3kService {
   static updatePension = this.updatePensiun;
 
   static async revertPensiun(nipBaru) {
-    const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
-    if (!dataP3k) {
-      const error = new Error('Data P3K tidak ditemukan');
+    const pegawai = await DataP3kRepository.findByNipBaru(nipBaru);
+    if (!pegawai) {
+      const error = new Error('Data Pegawai PPPK tidak ditemukan');
       error.status = 404;
       throw error;
     }
 
-    if (dataP3k.statusPensiun !== 'PENSIUN') {
+    if (pegawai.statusPensiun !== 'PENSIUN') {
       const error = new Error('Pegawai tidak berstatus PENSIUN');
       error.status = 400;
       throw error;

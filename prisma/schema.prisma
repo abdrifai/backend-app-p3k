@@ -279,12 +279,19 @@ model DataP3kParuhWaktu {
   flagIkd               String?
   eselonId              String?
   eselonNama            String?
-  statusPensiun         String?     @default("AKTIF")
-  isDeleted             Boolean     @default(false)
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  statusPensiun         String?              @default("AKTIF")
+  jenisPensiunId        String?
+  arsipSkPensiunId      String?
+  isDeleted             Boolean              @default(false)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  jenisPensiun          RefJenisPensiun?     @relation(fields: [jenisPensiunId], references: [id])
+  arsipSkPensiun        ArsipSkPensiun?      @relation(fields: [arsipSkPensiunId], references: [id])
 
   @@index([unorIndukId], map: "data_p3k_paruh_waktu_unorIndukId_fkey")
+  @@index([jenisPensiunId], map: "data_p3k_paruh_waktu_jenisPensiunId_fkey")
+  @@index([arsipSkPensiunId], map: "data_p3k_paruh_waktu_arsipSkPensiunId_fkey")
   @@index([unorNama])
   @@index([golAkhirNama])
   @@index([nama])
@@ -292,14 +299,15 @@ model DataP3kParuhWaktu {
 }
 
 model ArsipSkPensiun {
-  id        String    @id @default(uuid())
-  nomorSk   String    @unique
-  tanggalSk String?
-  fileUrl   String?
-  isDeleted Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  dataP3k   DataP3k[]
+  id                String              @id @default(uuid())
+  nomorSk           String              @unique
+  tanggalSk         String?
+  fileUrl           String?
+  isDeleted         Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  dataP3k           DataP3k[]
+  dataP3kParuhWaktu DataP3kParuhWaktu[]
 
   @@map("arsip_sk_pensiun")
 }
@@ -459,15 +467,16 @@ model DataP3k {
 }
 
 model RefJenisPensiun {
-  id          String      @id @default(uuid())
-  kode        String?     @unique
-  nama        String
-  keterangan  String?     @db.Text
-  isActive    Boolean     @default(true) @map("is_active")
-  isDeleted   Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  dataP3k     DataP3k[]
+  id                String              @id @default(uuid())
+  kode              String?             @unique
+  nama              String
+  keterangan        String?             @db.Text
+  isActive          Boolean             @default(true) @map("is_active")
+  isDeleted         Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  dataP3k           DataP3k[]
+  dataP3kParuhWaktu DataP3kParuhWaktu[]
 
   @@map("ref_jenis_pensiun")
 }

@@ -93,6 +93,9 @@ export class RefJenisPensiunRepository {
           select: {
             dataP3k: {
               where: { isDeleted: false, statusPensiun: 'PENSIUN' }
+            },
+            dataP3kParuhWaktu: {
+              where: { isDeleted: false, statusPensiun: 'PENSIUN' }
             }
           }
         }
@@ -121,6 +124,9 @@ export class RefJenisPensiunRepository {
         _count: {
           select: {
             dataP3k: {
+              where: { isDeleted: false, statusPensiun: 'PENSIUN' }
+            },
+            dataP3kParuhWaktu: {
               where: { isDeleted: false, statusPensiun: 'PENSIUN' }
             }
           }

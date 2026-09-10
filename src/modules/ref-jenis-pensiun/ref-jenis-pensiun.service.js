@@ -44,7 +44,8 @@ export class RefJenisPensiunService {
 
   static async delete(id) {
     const item = await this.getById(id);
-    if (item._count?.dataP3k > 0) {
+    const totalUsage = (item._count?.dataP3k || 0) + (item._count?.dataP3kParuhWaktu || 0);
+    if (totalUsage > 0) {
       const error = new Error('Jenis Pensiun tidak dapat dihapus karena masih digunakan oleh data pegawai pensiun.');
       error.statusCode = 400;
       throw error;

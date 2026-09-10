@@ -468,7 +468,7 @@ export class DataP3kRepository {
   }
 
   static async findByNipBaru(nipBaru) {
-    return prisma.dataP3k.findFirst({
+    const p3k = await prisma.dataP3k.findFirst({
       where: { nipBaru, isDeleted: false },
       include: {
         unorInduk: true,
@@ -487,12 +487,45 @@ export class DataP3kRepository {
         }
       }
     });
+
+    if (p3k) {
+      return { ...p3k, kategoriPegawai: 'PENUH_WAKTU' };
+    }
+
+    const paruhWaktu = await prisma.dataP3kParuhWaktu.findFirst({
+      where: { nipBaru, isDeleted: false },
+      include: {
+        unorInduk: true,
+        jenisPensiun: true,
+        arsipSkPensiun: true,
+      }
+    });
+
+    if (paruhWaktu) {
+      return { ...paruhWaktu, kategoriPegawai: 'PARUH_WAKTU' };
+    }
+
+    return null;
   }
 
   static async setPensiun({ nipBaru, nomorSk, tanggalSk, fileUrl, jenisPensiunId }) {
     return prisma.$transaction(async (tx) => {
       const trimmedNomorSk = nomorSk ? nomorSk.trim() : '';
       const trimmedTanggalSk = tanggalSk ? tanggalSk.trim() : null;
+
+      // Check if employee exists in DataP3k or DataP3kParuhWaktu
+      const p3k = await tx.dataP3k.findFirst({
+        where: { nipBaru, isDeleted: false }
+      });
+      const paruhWaktu = !p3k ? await tx.dataP3kParuhWaktu.findFirst({
+        where: { nipBaru, isDeleted: false }
+      }) : null;
+
+      if (!p3k && !paruhWaktu) {
+        const error = new Error('Data Pegawai PPPK tidak ditemukan');
+        error.status = 404;
+        throw error;
+      }
 
       // 1. Check if ArsipSkPensiun with nomorSk already exists
       let arsipSk = await tx.arsipSkPensiun.findUnique({
@@ -518,7 +551,7 @@ export class DataP3kRepository {
         });
       }
 
-      // 2. Update DataP3k status and link to ArsipSkPensiun & JenisPensiun
+      // 2. Update status and link to ArsipSkPensiun & JenisPensiun
       const p3kData = {
         statusPensiun: 'PENSIUN',
         arsipSkPensiunId: arsipSk.id,
@@ -527,16 +560,26 @@ export class DataP3kRepository {
         p3kData.jenisPensiunId = jenisPensiunId || null;
       }
 
-      return await tx.dataP3k.update({
-        where: { nipBaru },
-        data: p3kData,
-        include: { arsipSkPensiun: true, jenisPensiun: true }
-      });
+      if (p3k) {
+        const res = await tx.dataP3k.update({
+          where: { nipBaru },
+          data: p3kData,
+          include: { arsipSkPensiun: true, jenisPensiun: true }
+        });
+        return { ...res, kategoriPegawai: 'PENUH_WAKTU' };
+      } else {
+        const res = await tx.dataP3kParuhWaktu.update({
+          where: { nipBaru },
+          data: p3kData,
+          include: { arsipSkPensiun: true, jenisPensiun: true }
+        });
+        return { ...res, kategoriPegawai: 'PARUH_WAKTU' };
+      }
     });
   }
   static setPension = this.setPensiun;
 
-  static async findAllPensiun({ skip, take, search, jenisPensiunId }) {
+  static async findAllPensiun({ skip, take, search, jenisPensiunId, kategori = 'ALL' }) {
     const where = { AND: [{ isDeleted: false }, { statusPensiun: 'PENSIUN' }] };
 
     if (jenisPensiunId) {
@@ -553,23 +596,83 @@ export class DataP3kRepository {
       });
     }
 
-    const [data, total] = await Promise.all([
+    if (kategori === 'PENUH_WAKTU') {
+      const [data, total] = await Promise.all([
+        prisma.dataP3k.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            arsipSkPensiun: true,
+            jenisPensiun: { select: { id: true, kode: true, nama: true } }
+          },
+          orderBy: { updatedAt: 'desc' }
+        }),
+        prisma.dataP3k.count({ where })
+      ]);
+      return {
+        data: data.map(d => ({ ...d, kategoriPegawai: 'PENUH_WAKTU' })),
+        total
+      };
+    }
+
+    if (kategori === 'PARUH_WAKTU') {
+      const [data, total] = await Promise.all([
+        prisma.dataP3kParuhWaktu.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            arsipSkPensiun: true,
+            jenisPensiun: { select: { id: true, kode: true, nama: true } }
+          },
+          orderBy: { updatedAt: 'desc' }
+        }),
+        prisma.dataP3kParuhWaktu.count({ where })
+      ]);
+      return {
+        data: data.map(d => ({ ...d, kategoriPegawai: 'PARUH_WAKTU' })),
+        total
+      };
+    }
+
+    // ALL (Combined)
+    const [totalP3k, totalParuh] = await Promise.all([
+      prisma.dataP3k.count({ where }),
+      prisma.dataP3kParuhWaktu.count({ where })
+    ]);
+    const total = totalP3k + totalParuh;
+
+    const [dataP3k, dataParuh] = await Promise.all([
       prisma.dataP3k.findMany({
         where,
-        skip,
-        take,
+        take: skip + take,
         include: {
           arsipSkPensiun: true,
-          jenisPensiun: {
-            select: { id: true, kode: true, nama: true }
-          }
+          jenisPensiun: { select: { id: true, kode: true, nama: true } }
         },
         orderBy: { updatedAt: 'desc' }
       }),
-      prisma.dataP3k.count({ where })
+      prisma.dataP3kParuhWaktu.findMany({
+        where,
+        take: skip + take,
+        include: {
+          arsipSkPensiun: true,
+          jenisPensiun: { select: { id: true, kode: true, nama: true } }
+        },
+        orderBy: { updatedAt: 'desc' }
+      })
     ]);
 
-    return { data, total };
+    const combined = [
+      ...dataP3k.map(d => ({ ...d, kategoriPegawai: 'PENUH_WAKTU' })),
+      ...dataParuh.map(d => ({ ...d, kategoriPegawai: 'PARUH_WAKTU' }))
+    ].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+    return {
+      data: combined.slice(skip, skip + take),
+      total
+    };
   }
   static findAllPensioned = this.findAllPensiun;
 
@@ -577,18 +680,25 @@ export class DataP3kRepository {
     return prisma.$transaction(async (tx) => {
       const p3k = await tx.dataP3k.findUnique({
         where: { nipBaru },
-        select: { arsipSkPensiunId: true }
+        select: { id: true, arsipSkPensiunId: true }
       });
+      const paruhWaktu = !p3k ? await tx.dataP3kParuhWaktu.findUnique({
+        where: { nipBaru },
+        select: { id: true, arsipSkPensiunId: true }
+      }) : null;
 
-      if (!p3k) {
-        const error = new Error('Data P3K tidak ditemukan');
+      if (!p3k && !paruhWaktu) {
+        const error = new Error('Data Pegawai PPPK tidak ditemukan');
         error.status = 404;
         throw error;
       }
 
+      const targetModel = p3k ? tx.dataP3k : tx.dataP3kParuhWaktu;
+      const currentEntity = p3k || paruhWaktu;
+
       // Update jenisPensiunId if provided
       if (jenisPensiunId !== undefined) {
-        await tx.dataP3k.update({
+        await targetModel.update({
           where: { nipBaru },
           data: { jenisPensiunId: jenisPensiunId || null }
         });
@@ -596,9 +706,9 @@ export class DataP3kRepository {
 
       // Find if current arsip exists
       let currentArsip = null;
-      if (p3k.arsipSkPensiunId) {
+      if (currentEntity.arsipSkPensiunId) {
         currentArsip = await tx.arsipSkPensiun.findUnique({
-          where: { id: p3k.arsipSkPensiunId }
+          where: { id: currentEntity.arsipSkPensiunId }
         });
       }
 
@@ -608,14 +718,13 @@ export class DataP3kRepository {
       // Scenario 1: User has no existing valid arsip in DB
       if (!currentArsip) {
         if (!trimmedNomorSk) {
-          // If no SK number provided and no existing arsip, but jenisPensiunId might have been updated
-          return tx.dataP3k.findUnique({
+          const res = await targetModel.findUnique({
             where: { nipBaru },
             include: { arsipSkPensiun: true, jenisPensiun: true }
           });
+          return { ...res, kategoriPegawai: p3k ? 'PENUH_WAKTU' : 'PARUH_WAKTU' };
         }
 
-        // Check if ArsipSkPensiun with trimmedNomorSk already exists
         let targetArsip = await tx.arsipSkPensiun.findUnique({
           where: { nomorSk: trimmedNomorSk }
         });
@@ -639,21 +748,23 @@ export class DataP3kRepository {
           });
         }
 
-        // Link DataP3k to targetArsip
-        return await tx.dataP3k.update({
+        const res = await targetModel.update({
           where: { nipBaru },
           data: { arsipSkPensiunId: targetArsip.id },
           include: { arsipSkPensiun: true, jenisPensiun: true }
         });
+        return { ...res, kategoriPegawai: p3k ? 'PENUH_WAKTU' : 'PARUH_WAKTU' };
       }
 
       // Scenario 2: User has an existing valid arsip
       const isNomorSkChanging = trimmedNomorSk && trimmedNomorSk !== currentArsip.nomorSk;
 
       if (isNomorSkChanging) {
-        const countUsingCurrent = await tx.dataP3k.count({
-          where: { arsipSkPensiunId: currentArsip.id }
-        });
+        const [countUsingP3k, countUsingParuh] = await Promise.all([
+          tx.dataP3k.count({ where: { arsipSkPensiunId: currentArsip.id } }),
+          tx.dataP3kParuhWaktu.count({ where: { arsipSkPensiunId: currentArsip.id } })
+        ]);
+        const countUsingCurrent = countUsingP3k + countUsingParuh;
 
         let targetArsip = await tx.arsipSkPensiun.findUnique({
           where: { nomorSk: trimmedNomorSk }
@@ -669,7 +780,7 @@ export class DataP3kRepository {
             data: updateData
           });
 
-          await tx.dataP3k.update({
+          await targetModel.update({
             where: { nipBaru },
             data: { arsipSkPensiunId: targetArsip.id }
           });
@@ -699,14 +810,13 @@ export class DataP3kRepository {
               }
             });
 
-            await tx.dataP3k.update({
+            await targetModel.update({
               where: { nipBaru },
               data: { arsipSkPensiunId: newArsip.id }
             });
           }
         }
       } else {
-        // nomorSk didn't change, update tanggalSk and/or fileUrl
         const updateData = {};
         if (trimmedTanggalSk !== null && trimmedTanggalSk !== '') {
           updateData.tanggalSk = trimmedTanggalSk;
@@ -723,10 +833,11 @@ export class DataP3kRepository {
         }
       }
 
-      return tx.dataP3k.findUnique({
+      const res = await targetModel.findUnique({
         where: { nipBaru },
         include: { arsipSkPensiun: true, jenisPensiun: true }
       });
+      return { ...res, kategoriPegawai: p3k ? 'PENUH_WAKTU' : 'PARUH_WAKTU' };
     });
   }
   static updatePension = this.updatePensiun;
@@ -737,9 +848,21 @@ export class DataP3kRepository {
         where: { nipBaru },
         select: { arsipSkPensiunId: true }
       });
+      const paruhWaktu = !p3k ? await tx.dataP3kParuhWaktu.findUnique({
+        where: { nipBaru },
+        select: { arsipSkPensiunId: true }
+      }) : null;
 
-      // Unlink from ArsipSkPensiun, clear jenisPensiunId, and set back to AKTIF
-      const updated = await tx.dataP3k.update({
+      if (!p3k && !paruhWaktu) {
+        const error = new Error('Data Pegawai PPPK tidak ditemukan');
+        error.status = 404;
+        throw error;
+      }
+
+      const targetModel = p3k ? tx.dataP3k : tx.dataP3kParuhWaktu;
+      const arsipSkPensiunId = (p3k || paruhWaktu)?.arsipSkPensiunId;
+
+      const updated = await targetModel.update({
         where: { nipBaru },
         data: {
           statusPensiun: 'AKTIF',
@@ -748,19 +871,20 @@ export class DataP3kRepository {
         }
       });
 
-      // Soft delete the ArsipSkPensiun record if no other record is referencing it
-      if (p3k?.arsipSkPensiunId) {
+      if (arsipSkPensiunId) {
         const arsip = await tx.arsipSkPensiun.findUnique({
-          where: { id: p3k.arsipSkPensiunId }
+          where: { id: arsipSkPensiunId }
         });
         if (arsip) {
-          const countUsing = await tx.dataP3k.count({
-            where: {
-              arsipSkPensiunId: arsip.id,
-              nipBaru: { not: nipBaru }
-            }
-          });
-          if (countUsing === 0) {
+          const [countP3k, countParuh] = await Promise.all([
+            tx.dataP3k.count({
+              where: { arsipSkPensiunId: arsip.id, nipBaru: { not: nipBaru } }
+            }),
+            tx.dataP3kParuhWaktu.count({
+              where: { arsipSkPensiunId: arsip.id, nipBaru: { not: nipBaru } }
+            })
+          ]);
+          if (countP3k + countParuh === 0) {
             await tx.arsipSkPensiun.update({
               where: { id: arsip.id },
               data: { isDeleted: true }
@@ -769,7 +893,7 @@ export class DataP3kRepository {
         }
       }
 
-      return updated;
+      return { ...updated, kategoriPegawai: p3k ? 'PENUH_WAKTU' : 'PARUH_WAKTU' };
     });
   }
   static revertPension = this.revertPensiun;

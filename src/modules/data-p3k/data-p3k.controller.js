@@ -105,8 +105,9 @@ export class DataP3kController {
     const golongan = req.query.golongan || '';
     const jenisJabatan = req.query.jenisJabatan || '';
     const jabatanNama = req.query.jabatanNama || '';
+    const kategori = req.query.kategori || 'ALL';
 
-    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
+    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, kategori });
 
     res.status(200).json({
       success: true,
@@ -357,8 +358,9 @@ export class DataP3kController {
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || '';
     const jenisPensiunId = req.query.jenisPensiunId || '';
+    const kategori = req.query.kategori || 'ALL';
 
-    const result = await DataP3kService.getAllPensiun({ page, limit, search, jenisPensiunId });
+    const result = await DataP3kService.getAllPensiun({ page, limit, search, jenisPensiunId, kategori });
 
     res.status(200).json({
       success: true,
