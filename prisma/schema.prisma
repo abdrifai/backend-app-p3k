@@ -430,6 +430,7 @@ model DataP3k {
   namaSekolah           String?
   flagIkd               String?
   statusPensiun         String?              @default("AKTIF")
+  jenisPensiunId        String?
   arsipSkPensiunId      String?
   arsipSkCpnsId         String?
   isDeleted             Boolean              @default(false)
@@ -437,6 +438,7 @@ model DataP3k {
   updatedAt             DateTime             @updatedAt
   unorIndukId           String?
   editedById            String?
+  jenisPensiun          RefJenisPensiun?     @relation(fields: [jenisPensiunId], references: [id])
   arsipSkPensiun        ArsipSkPensiun?      @relation(fields: [arsipSkPensiunId], references: [id])
   arsipSkCpns           ArsipSkCpns?         @relation(fields: [arsipSkCpnsId], references: [id])
   editedBy              User?                @relation("TaskEditor", fields: [editedById], references: [id])
@@ -448,11 +450,26 @@ model DataP3k {
   mappingUnor           MappingUnor?
   masalahPegawai        MasalahPegawai[]
 
+  @@index([jenisPensiunId], map: "data_p3k_jenisPensiunId_fkey")
   @@index([arsipSkPensiunId], map: "data_p3k_arsipSkPensiunId_fkey")
   @@index([arsipSkCpnsId], map: "data_p3k_arsipSkCpnsId_fkey")
   @@index([editedById], map: "data_p3k_editedById_fkey")
   @@index([unorIndukId], map: "data_p3k_unorIndukId_fkey")
   @@map("data_p3k")
+}
+
+model RefJenisPensiun {
+  id          String      @id @default(uuid())
+  kode        String?     @unique
+  nama        String
+  keterangan  String?     @db.Text
+  isActive    Boolean     @default(true) @map("is_active")
+  isDeleted   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  dataP3k     DataP3k[]
+
+  @@map("ref_jenis_pensiun")
 }
 
 model ArsipKontrak {

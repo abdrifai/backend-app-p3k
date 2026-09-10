@@ -472,6 +472,7 @@ export class DataP3kRepository {
       where: { nipBaru, isDeleted: false },
       include: {
         unorInduk: true,
+        jenisPensiun: true,
         arsipSkPensiun: true,
         arsipSkCpns: true,
         riwayatKontrak: {
@@ -488,7 +489,7 @@ export class DataP3kRepository {
     });
   }
 
-  static async setPensiun({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
+  static async setPensiun({ nipBaru, nomorSk, tanggalSk, fileUrl, jenisPensiunId }) {
     return prisma.$transaction(async (tx) => {
       const trimmedNomorSk = nomorSk ? nomorSk.trim() : '';
       const trimmedTanggalSk = tanggalSk ? tanggalSk.trim() : null;
@@ -517,21 +518,30 @@ export class DataP3kRepository {
         });
       }
 
-      // 2. Update DataP3k status and link to ArsipSkPensiun
+      // 2. Update DataP3k status and link to ArsipSkPensiun & JenisPensiun
+      const p3kData = {
+        statusPensiun: 'PENSIUN',
+        arsipSkPensiunId: arsipSk.id,
+      };
+      if (jenisPensiunId !== undefined) {
+        p3kData.jenisPensiunId = jenisPensiunId || null;
+      }
+
       return await tx.dataP3k.update({
         where: { nipBaru },
-        data: {
-          statusPensiun: 'PENSIUN',
-          arsipSkPensiunId: arsipSk.id
-        },
-        include: { arsipSkPensiun: true }
+        data: p3kData,
+        include: { arsipSkPensiun: true, jenisPensiun: true }
       });
     });
   }
   static setPension = this.setPensiun;
 
-  static async findAllPensiun({ skip, take, search }) {
+  static async findAllPensiun({ skip, take, search, jenisPensiunId }) {
     const where = { AND: [{ isDeleted: false }, { statusPensiun: 'PENSIUN' }] };
+
+    if (jenisPensiunId) {
+      where.AND.push({ jenisPensiunId });
+    }
 
     if (search) {
       where.AND.push({
@@ -548,7 +558,12 @@ export class DataP3kRepository {
         where,
         skip,
         take,
-        include: { arsipSkPensiun: true },
+        include: {
+          arsipSkPensiun: true,
+          jenisPensiun: {
+            select: { id: true, kode: true, nama: true }
+          }
+        },
         orderBy: { updatedAt: 'desc' }
       }),
       prisma.dataP3k.count({ where })
@@ -558,7 +573,7 @@ export class DataP3kRepository {
   }
   static findAllPensioned = this.findAllPensiun;
 
-  static async updatePensiun({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
+  static async updatePensiun({ nipBaru, nomorSk, tanggalSk, fileUrl, jenisPensiunId }) {
     return prisma.$transaction(async (tx) => {
       const p3k = await tx.dataP3k.findUnique({
         where: { nipBaru },
@@ -569,6 +584,14 @@ export class DataP3kRepository {
         const error = new Error('Data P3K tidak ditemukan');
         error.status = 404;
         throw error;
+      }
+
+      // Update jenisPensiunId if provided
+      if (jenisPensiunId !== undefined) {
+        await tx.dataP3k.update({
+          where: { nipBaru },
+          data: { jenisPensiunId: jenisPensiunId || null }
+        });
       }
 
       // Find if current arsip exists
@@ -585,9 +608,11 @@ export class DataP3kRepository {
       // Scenario 1: User has no existing valid arsip in DB
       if (!currentArsip) {
         if (!trimmedNomorSk) {
-          const error = new Error('Nomor SK Pensiun wajib diisi.');
-          error.status = 400;
-          throw error;
+          // If no SK number provided and no existing arsip, but jenisPensiunId might have been updated
+          return tx.dataP3k.findUnique({
+            where: { nipBaru },
+            include: { arsipSkPensiun: true, jenisPensiun: true }
+          });
         }
 
         // Check if ArsipSkPensiun with trimmedNomorSk already exists
@@ -618,7 +643,7 @@ export class DataP3kRepository {
         return await tx.dataP3k.update({
           where: { nipBaru },
           data: { arsipSkPensiunId: targetArsip.id },
-          include: { arsipSkPensiun: true }
+          include: { arsipSkPensiun: true, jenisPensiun: true }
         });
       }
 
@@ -700,7 +725,7 @@ export class DataP3kRepository {
 
       return tx.dataP3k.findUnique({
         where: { nipBaru },
-        include: { arsipSkPensiun: true }
+        include: { arsipSkPensiun: true, jenisPensiun: true }
       });
     });
   }
@@ -713,12 +738,13 @@ export class DataP3kRepository {
         select: { arsipSkPensiunId: true }
       });
 
-      // Unlink from ArsipSkPensiun and set back to AKTIF
+      // Unlink from ArsipSkPensiun, clear jenisPensiunId, and set back to AKTIF
       const updated = await tx.dataP3k.update({
         where: { nipBaru },
         data: {
           statusPensiun: 'AKTIF',
-          arsipSkPensiunId: null
+          arsipSkPensiunId: null,
+          jenisPensiunId: null
         }
       });
 

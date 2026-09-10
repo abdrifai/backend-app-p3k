@@ -143,14 +143,15 @@ export class DataP3kService {
       nipBaru,
       nomorSk,
       tanggalSk,
-      fileUrl
+      fileUrl,
+      jenisPensiunId
     });
   }
   static setPension = this.setPensiun;
 
-  static async getAllPensiun({ page = 1, limit = 10, search = '' }) {
+  static async getAllPensiun({ page = 1, limit = 10, search = '', jenisPensiunId = '' }) {
     const skip = (page - 1) * limit;
-    const { data, total } = await DataP3kRepository.findAllPensiun({ skip, take: limit, search });
+    const { data, total } = await DataP3kRepository.findAllPensiun({ skip, take: limit, search, jenisPensiunId });
 
     return {
       data,
@@ -164,7 +165,7 @@ export class DataP3kService {
   }
   static getAllPensioned = this.getAllPensiun;
 
-  static async updatePensiun({ nipBaru, nomorSk, tanggalSk, fileUrl }) {
+  static async updatePensiun({ nipBaru, nomorSk, tanggalSk, fileUrl, jenisPensiunId }) {
     const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
     if (!dataP3k) {
       const error = new Error('Data P3K tidak ditemukan');
@@ -182,7 +183,8 @@ export class DataP3kService {
       nipBaru,
       nomorSk,
       tanggalSk,
-      fileUrl
+      fileUrl,
+      jenisPensiunId
     });
   }
   static updatePension = this.updatePensiun;

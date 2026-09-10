@@ -356,8 +356,9 @@ export class DataP3kController {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || '';
+    const jenisPensiunId = req.query.jenisPensiunId || '';
 
-    const result = await DataP3kService.getAllPensiun({ page, limit, search });
+    const result = await DataP3kService.getAllPensiun({ page, limit, search, jenisPensiunId });
 
     res.status(200).json({
       success: true,

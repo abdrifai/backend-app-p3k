@@ -4,6 +4,7 @@ export const setPensiunSchema = Joi.object({
   nipBaru: Joi.string().required(),
   nomorSk: Joi.string().required(),
   tanggalSk: Joi.string().required(),
+  jenisPensiunId: Joi.string().uuid().optional().allow('', null),
 });
 export const setPensionSchema = setPensiunSchema;
 
@@ -11,6 +12,7 @@ export const updatePensiunSchema = Joi.object({
   nipBaru: Joi.string().required(),
   nomorSk: Joi.string().optional().allow('', null),
   tanggalSk: Joi.string().optional().allow('', null),
+  jenisPensiunId: Joi.string().uuid().optional().allow('', null),
 });
 export const updatePensionSchema = updatePensiunSchema;
 
