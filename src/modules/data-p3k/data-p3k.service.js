@@ -18,15 +18,8 @@ export class DataP3kService {
     const skip = (page - 1) * limit;
 
     if (kategori === 'PARUH_WAKTU') {
-      const where = { isDeleted: false };
-      if (statusPensiun) where.statusPensiun = statusPensiun;
-      if (search) {
-        where.OR = [
-          { nama: { contains: search } },
-          { nipBaru: { contains: search } },
-          { unorNama: { contains: search } }
-        ];
-      }
+      const where = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
+      const whereActive = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
       const [data, totalCount, totalActive] = await Promise.all([
         prisma.dataP3kParuhWaktu.findMany({
           where,
@@ -36,7 +29,7 @@ export class DataP3kService {
           orderBy: { nama: 'asc' }
         }),
         prisma.dataP3kParuhWaktu.count({ where }),
-        prisma.dataP3kParuhWaktu.count({ where: { isDeleted: false, statusPensiun: 'AKTIF' } })
+        prisma.dataP3kParuhWaktu.count({ where: whereActive })
       ]);
 
       return {
@@ -46,7 +39,7 @@ export class DataP3kService {
           totalActive,
           page,
           limit,
-          totalPages: Math.ceil(totalCount / limit)
+          totalPages: Math.ceil(totalCount / limit) || 1
         }
       };
     }
@@ -55,7 +48,7 @@ export class DataP3kService {
       const [data, totalCount, totalActive] = await Promise.all([
         DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
         DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
-        DataP3kRepository.getTotalCount({ statusPensiun: 'AKTIF' })
+        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama })
       ]);
 
       return {
@@ -65,24 +58,15 @@ export class DataP3kService {
           totalActive,
           page,
           limit,
-          totalPages: Math.ceil(totalCount / limit)
+          totalPages: Math.ceil(totalCount / limit) || 1
         }
       };
     }
 
     // Default: If statusPensiun === 'AKTIF' and kategori === 'ALL', combine both
     if (statusPensiun === 'AKTIF') {
-      const whereP3k = { AND: [{ isDeleted: false, statusPensiun: 'AKTIF' }] };
-      const whereParuh = { AND: [{ isDeleted: false, statusPensiun: 'AKTIF' }] };
-      if (search) {
-        const sCond = [
-          { nama: { contains: search } },
-          { nipBaru: { contains: search } },
-          { unorNama: { contains: search } }
-        ];
-        whereP3k.AND.push({ OR: sCond });
-        whereParuh.AND.push({ OR: sCond });
-      }
+      const whereP3k = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
+      const whereParuh = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
 
       const [totalP3k, totalParuh] = await Promise.all([
         prisma.dataP3k.count({ where: whereP3k }),
@@ -108,7 +92,7 @@ export class DataP3kService {
       const combined = [
         ...dataP3k.map(d => ({ ...d, kategoriPegawai: 'PENUH_WAKTU' })),
         ...dataParuh.map(d => ({ ...d, kategoriPegawai: 'PARUH_WAKTU' }))
-      ].sort((a, b) => a.nama.localeCompare(b.nama));
+      ].sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
       return {
         data: combined.slice(skip, skip + limit),
@@ -117,7 +101,7 @@ export class DataP3kService {
           totalActive: totalCount,
           page,
           limit,
-          totalPages: Math.ceil(totalCount / limit)
+          totalPages: Math.ceil(totalCount / limit) || 1
         }
       };
     }
@@ -125,7 +109,7 @@ export class DataP3kService {
     const [data, totalCount, totalActive] = await Promise.all([
       DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
       DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
-      DataP3kRepository.getTotalCount({ statusPensiun: 'AKTIF' })
+      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama })
     ]);
 
     return {
@@ -135,7 +119,7 @@ export class DataP3kService {
         totalActive,
         page,
         limit,
-        totalPages: Math.ceil(totalCount / limit)
+        totalPages: Math.ceil(totalCount / limit) || 1
       }
     };
   }
