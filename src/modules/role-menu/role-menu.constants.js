@@ -51,9 +51,9 @@ export const MENU_CATALOG = [
     order: 2.3
   },
   {
-    key: 'manajemen-pensiun',
-    label: 'Pengajuan Pensiun',
-    path: '/manajemen-pensiun',
+    key: 'manajemen-pemberhentian',
+    label: 'Manajemen Pemberhentian',
+    path: '/manajemen-pemberhentian',
     icon: 'ri-user-unfollow-line',
     parentKey: 'data-utama',
     group: 'Data Kepegawaian',
@@ -374,7 +374,7 @@ export const DEFAULT_PERMISSIONS = {
     'dashboard',
     'data-utama',
     'profil-pegawai',
-    'manajemen-pensiun',
+    'manajemen-pemberhentian',
     'laporan',
     'laporan-estimasi-pensiun'
   ]

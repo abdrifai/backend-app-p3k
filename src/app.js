@@ -25,6 +25,7 @@ import { healthRoutes } from './modules/health/health.routes.js';
 import { kategoriMasalahRoutes } from './modules/kategori-masalah/kategori-masalah.routes.js';
 import { masalahPegawaiRoutes } from './modules/masalah-pegawai/masalah-pegawai.routes.js';
 import { refJenisPensiunRoutes } from './modules/ref-jenis-pensiun/ref-jenis-pensiun.routes.js';
+import { pemberhentianRoutes } from './modules/pemberhentian/pemberhentian.routes.js';
 import path from 'path';
 
 // Initialize Express
@@ -94,6 +95,7 @@ app.use('/api/role-menus', roleMenuRoutes);
 app.use('/api/v1/kategori-masalah', kategoriMasalahRoutes);
 app.use('/api/v1/masalah-pegawai', masalahPegawaiRoutes);
 app.use('/api/v1/ref-jenis-pensiun', refJenisPensiunRoutes);
+app.use('/api/v1/pemberhentian', pemberhentianRoutes);
 
 // 404 Handler
 app.use(notFoundHandler);

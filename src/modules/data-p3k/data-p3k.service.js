@@ -1,4 +1,5 @@
 import { DataP3kRepository } from './data-p3k.repository.js';
+import { PemberhentianService } from '../pemberhentian/pemberhentian.service.js';
 import TaskRepository from '../task/task.repository.js';
 import activityLogService from '../activity-log/activityLog.service.js';
 import prisma from '../../config/database.js';
@@ -214,85 +215,23 @@ export class DataP3kService {
     };
   }
 
-  static async setPensiun({ nipBaru, nomorSk, tanggalSk, fileUrl, jenisPensiunId }) {
-    const dataP3k = await DataP3kRepository.findByNipBaru(nipBaru);
-    if (!dataP3k) {
-      const error = new Error('Data P3K tidak ditemukan');
-      error.status = 404;
-      throw error;
-    }
-
-    if (dataP3k.statusPensiun === 'PENSIUN') {
-      const error = new Error('Pegawai sudah berstatus PENSIUN');
-      error.status = 400;
-      throw error;
-    }
-
-    return await DataP3kRepository.setPensiun({
-      nipBaru,
-      nomorSk,
-      tanggalSk,
-      fileUrl,
-      jenisPensiunId
-    });
+  static async setPensiun(payload, userId) {
+    return await PemberhentianService.setPemberhentian(payload, userId);
   }
   static setPension = this.setPensiun;
 
-  static async getAllPensiun({ page = 1, limit = 10, search = '', jenisPensiunId = '', kategori = 'ALL' }) {
-    const skip = (page - 1) * limit;
-    const { data, total } = await DataP3kRepository.findAllPensiun({ skip, take: limit, search, jenisPensiunId, kategori });
-
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
-      }
-    };
+  static async getAllPensiun(query) {
+    return await PemberhentianService.getAllPemberhentian(query);
   }
   static getAllPensioned = this.getAllPensiun;
 
-  static async updatePensiun({ nipBaru, nomorSk, tanggalSk, fileUrl, jenisPensiunId }) {
-    const pegawai = await DataP3kRepository.findByNipBaru(nipBaru);
-    if (!pegawai) {
-      const error = new Error('Data Pegawai PPPK tidak ditemukan');
-      error.status = 404;
-      throw error;
-    }
-
-    if (pegawai.statusPensiun !== 'PENSIUN') {
-      const error = new Error('Pegawai belum berstatus PENSIUN');
-      error.status = 400;
-      throw error;
-    }
-
-    return await DataP3kRepository.updatePensiun({
-      nipBaru,
-      nomorSk,
-      tanggalSk,
-      fileUrl,
-      jenisPensiunId
-    });
+  static async updatePensiun(payload, userId) {
+    return await PemberhentianService.updatePemberhentian(payload, userId);
   }
   static updatePension = this.updatePensiun;
 
-  static async revertPensiun(nipBaru) {
-    const pegawai = await DataP3kRepository.findByNipBaru(nipBaru);
-    if (!pegawai) {
-      const error = new Error('Data Pegawai PPPK tidak ditemukan');
-      error.status = 404;
-      throw error;
-    }
-
-    if (pegawai.statusPensiun !== 'PENSIUN') {
-      const error = new Error('Pegawai tidak berstatus PENSIUN');
-      error.status = 400;
-      throw error;
-    }
-
-    return await DataP3kRepository.revertPensiun(nipBaru);
+  static async revertPensiun(nipBaru, userId) {
+    return await PemberhentianService.revertPemberhentian(nipBaru, userId);
   }
   static revertPension = this.revertPensiun;
 

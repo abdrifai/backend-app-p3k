@@ -424,6 +424,43 @@ export class PerpanjanganService {
       throw error;
     }
 
+    // Attempt to delete the corresponding riwayat kontrak entry if exists
+    try {
+      await KontrakRepository.deleteByUsulanMatch(
+        usulan.dataP3kId,
+        usulan.tanggalMulai,
+        usulan.tanggalSelesai,
+        usulan.keterangan,
+        usulan.finalFileUrl || usulan.generatedFileUrl
+      );
+    } catch (err) {
+      console.error('Error deleting riwayat kontrak:', err);
+    }
+
+    // Delete generated word file if exists
+    if (usulan.generatedFileUrl) {
+      try {
+        const filePath = path.join(process.cwd(), usulan.generatedFileUrl.replace(/^\//, ''));
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error('Error deleting word file:', err);
+      }
+    }
+
+    // Delete final PDF file if exists
+    if (usulan.finalFileUrl) {
+      try {
+        const filePath = path.join(process.cwd(), usulan.finalFileUrl.replace(/^\//, ''));
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error('Error deleting PDF file:', err);
+      }
+    }
+
     // Delete associated task to allow redistribution
     await TaskUsulanRepository.deleteTaskByDataP3kId(usulan.dataP3kId);
 

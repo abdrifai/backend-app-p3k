@@ -37,7 +37,7 @@ export class RoleMenuService {
 
     // Override with DB permissions
     dbPermissions.forEach(p => {
-      if (rolePermissionMap[p.role]) {
+      if (rolePermissionMap[p.role] && rolePermissionMap[p.role][p.menuKey] !== undefined) {
         rolePermissionMap[p.role][p.menuKey] = p.isAllowed;
       }
     });

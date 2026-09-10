@@ -318,7 +318,7 @@ export class DataP3kController {
     }
 
     const fileUrl = `/uploads/pensiun-sk/${req.file.filename}`;
-    const result = await DataP3kService.setPensiun({ ...value, fileUrl });
+    const result = await DataP3kService.setPensiun({ ...value, fileUrl }, req.user?.id);
 
     res.status(200).json({
       success: true,
@@ -416,7 +416,7 @@ export class DataP3kController {
       fileUrl = `/uploads/pensiun-sk/${req.file.filename}`;
     }
 
-    const result = await DataP3kService.updatePensiun({ ...value, fileUrl });
+    const result = await DataP3kService.updatePensiun({ ...value, fileUrl }, req.user?.id);
 
     res.status(200).json({
       success: true,
@@ -459,7 +459,7 @@ export class DataP3kController {
       });
     }
 
-    const result = await DataP3kService.revertPensiun(value.nipBaru);
+    const result = await DataP3kService.revertPensiun(value.nipBaru, req.user?.id);
 
     res.status(200).json({
       success: true,
