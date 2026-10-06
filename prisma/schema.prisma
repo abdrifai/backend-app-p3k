@@ -22,6 +22,12 @@ model User {
   lastLoginAt         DateTime?
   lastIpAddress       String?
   lastUserAgent       String?              @db.VarChar(500)
+  dataP3kId           String?              @unique
+  dataP3kParuhWaktuId String?              @unique
+  jenisPegawaiPortal  String?
+  mustChangePassword  Boolean              @default(false)
+  dataP3k             DataP3k?             @relation("AkunPegawaiPenuh", fields: [dataP3kId], references: [id], onDelete: Restrict)
+  dataP3kParuhWaktu   DataP3kParuhWaktu?   @relation("AkunPegawaiParuh", fields: [dataP3kParuhWaktuId], references: [id], onDelete: Restrict)
   activityLogs        ActivityLog[]        @relation("UserActivities")
   activityLogsArchive ActivityLogArchive[] @relation("UserArchiveActivities")
   editedTasks         DataP3k[]            @relation("TaskEditor")
@@ -32,6 +38,10 @@ model User {
   rekapKinerja        RekapKinerjaHarian[]
   masalahPegawaiCreated MasalahPegawai[]   @relation("MasalahPegawaiCreator")
   riwayatPenangananCreated RiwayatPenangananMasalah[] @relation("RiwayatPenangananUser")
+  usulanDiverifikasi   UsulanPerbaikanData[] @relation("PerbaikanVerifikator")
+  statusPerbaikanUpdated RiwayatStatusPerbaikan[] @relation("StatusPerbaikanUser")
+  pejabatPenandatangan PejabatPenandatangan?
+  logTandaTangan       LogTandaTangan[]      @relation("LogTtdUser")
 
   @@map("users")
 }
@@ -44,6 +54,23 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@map("password_reset_tokens")
+}
+
+model AktivasiPegawaiToken {
+  id            String    @id @default(uuid())
+  nipBaru       String
+  jenisPegawai  String
+  dataPegawaiId String
+  email         String
+  otpHash       String
+  attempts      Int       @default(0)
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([nipBaru])
+  @@map("aktivasi_pegawai_tokens")
 }
 
 model P3kCsvImport {
@@ -282,16 +309,23 @@ model DataP3kParuhWaktu {
   statusPensiun         String?              @default("AKTIF")
   jenisPensiunId        String?
   arsipSkPensiunId      String?
+  arsipSkCpnsId         String?
   isDeleted             Boolean              @default(false)
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
   jenisPensiun          RefJenisPensiun?     @relation(fields: [jenisPensiunId], references: [id])
   arsipSkPensiun        ArsipSkPensiun?      @relation(fields: [arsipSkPensiunId], references: [id])
+  arsipSkCpns           ArsipSkCpns?         @relation(fields: [arsipSkCpnsId], references: [id])
+  akunPegawai           User?                @relation("AkunPegawaiParuh")
+  riwayatKontrak        RiwayatKontrak[]
+  riwayatKeluarga       RiwayatKeluarga[]
+  usulanPerbaikan       UsulanPerbaikanData[]
 
   @@index([unorIndukId], map: "data_p3k_paruh_waktu_unorIndukId_fkey")
   @@index([jenisPensiunId], map: "data_p3k_paruh_waktu_jenisPensiunId_fkey")
   @@index([arsipSkPensiunId], map: "data_p3k_paruh_waktu_arsipSkPensiunId_fkey")
+  @@index([arsipSkCpnsId], map: "data_p3k_paruh_waktu_arsipSkCpnsId_fkey")
   @@index([unorNama])
   @@index([golAkhirNama])
   @@index([nama])
@@ -313,14 +347,15 @@ model ArsipSkPensiun {
 }
 
 model ArsipSkCpns {
-  id        String    @id @default(uuid())
-  nomorSk   String    @unique
-  tanggalSk String?
-  fileUrl   String?
-  isDeleted Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  dataP3k   DataP3k[]
+  id                String              @id @default(uuid())
+  nomorSk           String              @unique
+  tanggalSk         String?
+  fileUrl           String?
+  isDeleted         Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  dataP3k           DataP3k[]
+  dataP3kParuhWaktu DataP3kParuhWaktu[]
 
   @@map("arsip_sk_cpns")
 }
@@ -451,7 +486,10 @@ model DataP3k {
   arsipSkCpns           ArsipSkCpns?         @relation(fields: [arsipSkCpnsId], references: [id])
   editedBy              User?                @relation("TaskEditor", fields: [editedById], references: [id])
   unorInduk             RefUnor?             @relation(fields: [unorIndukId], references: [id])
+  akunPegawai           User?                @relation("AkunPegawaiPenuh")
   riwayatKontrak        RiwayatKontrak[]
+  riwayatKeluarga       RiwayatKeluarga[]
+  usulanPerbaikan       UsulanPerbaikanData[]
   tasksPeremajaan       TaskPeremajaan[]
   tasksUsulan           TaskUsulan[]
   usulanPerpanjangan    UsulanPerpanjangan[]
@@ -494,25 +532,28 @@ model ArsipKontrak {
 }
 
 model RiwayatKontrak {
-  id             String        @id @default(uuid())
-  kontrakKe      Int
-  tanggalMulai   String
-  tanggalSelesai String
-  keterangan     String?
-  dataP3kId      String
-  arsipKontrakId String?
-  isDeleted      Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  gajiPokok      Decimal?
-  golongan       String?
-  mkBulan        Int?
-  mkTahun        Int?
-  nomorKontrak   String?
-  arsipKontrak   ArsipKontrak? @relation(fields: [arsipKontrakId], references: [id])
-  dataP3k        DataP3k       @relation(fields: [dataP3kId], references: [id])
+  id                  String             @id @default(uuid())
+  kontrakKe           Int
+  tanggalMulai        String
+  tanggalSelesai      String
+  keterangan          String?
+  dataP3kId           String?
+  dataP3kParuhWaktuId String?
+  arsipKontrakId      String?
+  isDeleted           Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  gajiPokok           Decimal?
+  golongan            String?
+  mkBulan             Int?
+  mkTahun             Int?
+  nomorKontrak        String?
+  arsipKontrak        ArsipKontrak?      @relation(fields: [arsipKontrakId], references: [id])
+  dataP3k             DataP3k?           @relation(fields: [dataP3kId], references: [id])
+  dataP3kParuhWaktu   DataP3kParuhWaktu? @relation(fields: [dataP3kParuhWaktuId], references: [id])
 
   @@index([dataP3kId])
+  @@index([dataP3kParuhWaktuId])
   @@index([arsipKontrakId], map: "riwayat_kontrak_arsipKontrakId_fkey")
   @@map("riwayat_kontrak")
 }
@@ -551,14 +592,20 @@ model UsulanPerpanjangan {
   finalFileUrl      String?
   kontrakKe         Int?
   statusSrikandi    String?
+  statusTte         String?
+  pdfDraftUrl       String?
+  pdfSignedUrl      String?
+  catatanTte        String?          @db.Text
   dataP3k           DataP3k            @relation(fields: [dataP3kId], references: [id])
   editedBy          User?              @relation("UsulanEditor", fields: [editedById], references: [id])
   templateKontrak   TemplateKontrak?   @relation(fields: [templateKontrakId], references: [id])
   srikandiHistories SrikandiHistory[]
+  logTandaTangan    LogTandaTangan[]
 
   @@index([dataP3kId])
   @@index([status])
   @@index([statusSrikandi])
+  @@index([statusTte])
   @@index([editedById], map: "usulan_perpanjangan_editedById_fkey")
   @@index([templateKontrakId], map: "usulan_perpanjangan_templateKontrakId_fkey")
   @@map("usulan_perpanjangan")
@@ -823,3 +870,146 @@ model RiwayatPenangananMasalah {
   @@index([userId])
   @@map("riwayat_penanganan_masalah")
 }
+
+model RiwayatKeluarga {
+  id                   String             @id @default(uuid())
+  dataP3kId            String?
+  dataP3kParuhWaktuId  String?
+  hubungan             String
+  nama                 String
+  nik                  String?
+  tempatLahir          String?
+  tanggalLahir         String?
+  jenisKelamin         String?
+  pekerjaan            String?
+  statusHidup          Boolean            @default(true)
+  tanggalMenikah       String?
+  nomorAktaNikah       String?
+  nomorAktaLahir       String?
+  isTanggungan         Boolean            @default(false)
+  isDeleted            Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  dataP3k              DataP3k?           @relation(fields: [dataP3kId], references: [id], onDelete: Restrict)
+  dataP3kParuhWaktu    DataP3kParuhWaktu? @relation(fields: [dataP3kParuhWaktuId], references: [id], onDelete: Restrict)
+
+  @@index([dataP3kId])
+  @@index([dataP3kParuhWaktuId])
+  @@index([hubungan])
+  @@map("riwayat_keluarga")
+}
+
+model UsulanPerbaikanData {
+  id                   String             @id @default(uuid())
+  nomorUsulan          String             @unique
+  dataP3kId            String?
+  dataP3kParuhWaktuId  String?
+  kategori             String
+  aksi                 String
+  targetId             String?
+  dataLama             Json?
+  dataBaru             Json
+  alasan               String             @db.Text
+  status               String             @default("DIAJUKAN")
+  catatanVerifikator   String?            @db.Text
+  verifikatorId        String?
+  tanggalVerifikasi    DateTime?
+  isDeleted            Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  dataP3k              DataP3k?           @relation(fields: [dataP3kId], references: [id], onDelete: Restrict)
+  dataP3kParuhWaktu    DataP3kParuhWaktu? @relation(fields: [dataP3kParuhWaktuId], references: [id], onDelete: Restrict)
+  verifikator          User?              @relation("PerbaikanVerifikator", fields: [verifikatorId], references: [id], onDelete: SetNull)
+
+  lampiran             LampiranPerbaikan[]
+  riwayatStatus        RiwayatStatusPerbaikan[]
+
+  @@index([dataP3kId])
+  @@index([dataP3kParuhWaktuId])
+  @@index([status])
+  @@index([kategori])
+  @@index([verifikatorId])
+  @@map("usulan_perbaikan_data")
+}
+
+model LampiranPerbaikan {
+  id               String               @id @default(uuid())
+  usulanId         String
+  namaFile         String
+  fileUrl          String
+  fileType         String?
+  fileSize         Int?
+  isDeleted        Boolean              @default(false)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  usulan           UsulanPerbaikanData  @relation(fields: [usulanId], references: [id], onDelete: Cascade)
+
+  @@index([usulanId])
+  @@map("lampiran_perbaikan")
+}
+
+model RiwayatStatusPerbaikan {
+  id               String               @id @default(uuid())
+  usulanId         String
+  statusLama       String?
+  statusBaru       String
+  catatan          String?              @db.Text
+  userId           String?
+  createdAt        DateTime             @default(now())
+
+  usulan           UsulanPerbaikanData  @relation(fields: [usulanId], references: [id], onDelete: Cascade)
+  user             User?                @relation("StatusPerbaikanUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([usulanId])
+  @@index([userId])
+  @@map("riwayat_status_perbaikan")
+}
+
+model PejabatPenandatangan {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  jabatan   String   // KEPALA_BKPSDM | SEKDA | BUPATI
+  nama      String
+  nip       String?
+  nik       String
+  jenis     String   // PARAF | TTE
+  urutan    Int
+  isActive  Boolean  @default(true)
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([jabatan])
+  @@index([urutan])
+  @@map("pejabat_penandatangan")
+}
+
+model LogTandaTangan {
+  id              String             @id @default(uuid())
+  usulanId        String
+  tahap           String             // TTE_PEGAWAI | PARAF_KABAN | PARAF_SEKDA | TTE_BUPATI
+  jenis           String             // PARAF | TTE
+  userId          String?
+  nik             String
+  status          String             // SUKSES | GAGAL | DITOLAK
+  pesan           String?            @db.Text
+  idDokumenBsre   String?
+  ipAddress       String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  usulan          UsulanPerpanjangan @relation(fields: [usulanId], references: [id], onDelete: Cascade)
+  user            User?              @relation("LogTtdUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([usulanId])
+  @@index([userId])
+  @@index([tahap])
+  @@map("log_tanda_tangan")
+}
+
+

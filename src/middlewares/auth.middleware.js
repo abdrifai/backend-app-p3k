@@ -83,3 +83,28 @@ export const authorize = (...roles) => {
     next();
   };
 };
+
+export const PORTAL_ONLY_ROLES = ['pegawai'];
+
+export const denyRole = (...roles) => {
+  const denied = roles.flat().map(r => String(r).toLowerCase().trim());
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to access this route' 
+      });
+    }
+
+    const userRoles = req.user.roles || String(req.user.role || '').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
+    const isDenied = userRoles.some(r => denied.includes(r));
+
+    if (isDenied) {
+      return res.status(403).json({ 
+        success: false, 
+        message: `Akses ditolak untuk role [${userRoles.join(', ')}]`
+      });
+    }
+    next();
+  };
+};

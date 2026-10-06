@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import userController from './user.controller.js';
-import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
+import { authenticate, authorize, denyRole } from '../../middlewares/auth.middleware.js';
 import { uploadUserPhoto } from '../../middlewares/upload.middleware.js';
 
 const router = Router();
@@ -81,7 +81,7 @@ router.post('/reset-password', userController.resetPassword);
 
 // Heartbeat & Online Monitoring routes
 router.post('/heartbeat', authenticate, userController.heartbeat);
-router.get('/monitoring-online', authenticate, userController.getOnlineUsers);
+router.get('/monitoring-online', authenticate, denyRole('pegawai'), userController.getOnlineUsers);
 
 // Current user profile routes
 router.get('/profile', authenticate, userController.getProfile);

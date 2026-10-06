@@ -96,3 +96,19 @@ export const uploadMasalahLampiran = multer({
   limits: { fileSize: 15 * 1024 * 1024 } // 15MB limit
 });
 
+const perbaikanFileFilter = (req, file, cb) => {
+  const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowedExtensions.includes(ext) || file.mimetype === 'application/pdf' || file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Format file tidak didukung! Format yang diperbolehkan hanya PDF, JPG, PNG.'), false);
+  }
+};
+
+export const uploadPerbaikanLampiran = multer({
+  storage: createStorage('uploads/perbaikan'),
+  fileFilter: perbaikanFileFilter,
+  limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit per file
+});
+

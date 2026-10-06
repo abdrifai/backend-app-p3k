@@ -187,10 +187,12 @@ export class PerpanjanganService {
       generatedFileUrl = await this._generateDocument(usulan);
     }
 
-    // Update status to APPROVED
+    // Update status to APPROVED & inisialisasi alur TTE
     const updated = await PerpanjanganRepository.updateUsulanStatus(id, {
       status: 'APPROVED',
-      generatedFileUrl
+      generatedFileUrl,
+      statusTte: 'MENUNGGU_PARAF_KABAN',
+      pdfDraftUrl: generatedFileUrl
     });
 
     // Get additional data for history
@@ -948,26 +950,28 @@ export class PerpanjanganService {
       };
     }).sort((a, b) => b.totalPegawai - a.totalPegawai);
 
-    // Operator Task Performance
-    const byOperator = raw.usersWithTasks.map((usr) => {
-      const assignedTasks = (usr.usulanTasks || []).length;
-      const completedTasks = (usr.usulanTasks || []).filter(t => t.isCompleted).length;
-      const createdUsulan = usr.usulanEditedTasks.length;
-      const selesaiUsulan = usr.usulanEditedTasks.filter(u => u.status === 'SELESAI').length;
-      const completionRate = assignedTasks > 0 ? (completedTasks / assignedTasks) * 100 : 0;
+    // Operator Task Performance (hanya tampilkan operator dengan tugas diberikan > 0)
+    const byOperator = raw.usersWithTasks
+      .map((usr) => {
+        const assignedTasks = (usr.usulanTasks || []).length;
+        const completedTasks = (usr.usulanTasks || []).filter(t => t.isCompleted).length;
+        const createdUsulan = usr.usulanEditedTasks.length;
+        const selesaiUsulan = usr.usulanEditedTasks.filter(u => u.status === 'SELESAI').length;
+        const completionRate = assignedTasks > 0 ? (completedTasks / assignedTasks) * 100 : 0;
 
-      return {
-        id: usr.id,
-        username: usr.username,
-        namaLengkap: usr.namaLengkap || usr.username,
-        role: usr.role,
-        assignedTasks,
-        completedTasks,
-        createdUsulan,
-        selesaiUsulan,
-        completionRate: Number(completionRate.toFixed(1))
-      };
-    });
+        return {
+          id: usr.id,
+          username: usr.username,
+          namaLengkap: usr.namaLengkap || usr.username,
+          role: usr.role,
+          assignedTasks,
+          completedTasks,
+          createdUsulan,
+          selesaiUsulan,
+          completionRate: Number(completionRate.toFixed(1))
+        };
+      })
+      .filter((usr) => usr.assignedTasks > 0);
 
     return {
       summary: {
@@ -1048,6 +1052,23 @@ export class PerpanjanganService {
       if (!isToday && byUser.length > 0) {
         KinerjaSnapshotService.snapshotForDate(targetDate).catch(() => {});
       }
+    }
+
+    // Filter user yang memiliki tugas diberikan > 0 (hilangkan user dengan tugas diberikan = 0)
+    const userIds = byUser.map(u => u.userId).filter(Boolean);
+    if (userIds.length > 0) {
+      const userTaskCounts = await PerpanjanganRepository.getUserTaskCounts(userIds);
+      const taskCountMap = new Map();
+      userTaskCounts.forEach(tc => {
+        taskCountMap.set(tc.assignedToUserId, tc._count.id);
+      });
+
+      byUser = byUser
+        .map(u => ({
+          ...u,
+          assignedTasks: taskCountMap.get(u.userId) || 0
+        }))
+        .filter(u => u.assignedTasks > 0);
     }
 
     // Hitung summary dari byUser

@@ -163,11 +163,14 @@ export class PerpanjanganRepository {
     });
   }
 
-  static async updateUsulanStatus(id, { status, alasanPenolakan, generatedFileUrl, finalFileUrl }) {
+  static async updateUsulanStatus(id, { status, alasanPenolakan, generatedFileUrl, finalFileUrl, statusTte, pdfDraftUrl, pdfSignedUrl }) {
     const data = { status };
     if (alasanPenolakan !== undefined) data.alasanPenolakan = alasanPenolakan;
     if (generatedFileUrl) data.generatedFileUrl = generatedFileUrl;
     if (finalFileUrl) data.finalFileUrl = finalFileUrl;
+    if (statusTte !== undefined) data.statusTte = statusTte;
+    if (pdfDraftUrl !== undefined) data.pdfDraftUrl = pdfDraftUrl;
+    if (pdfSignedUrl !== undefined) data.pdfSignedUrl = pdfSignedUrl;
 
     return prisma.usulanPerpanjangan.update({
       where: { id },
@@ -477,6 +480,18 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
     return prisma.usulanPerpanjangan.update({
       where: { id },
       data: { statusSrikandi }
+    });
+  }
+
+  static async getUserTaskCounts(userIds) {
+    if (!userIds || userIds.length === 0) return [];
+    return prisma.taskUsulan.groupBy({
+      by: ['assignedToUserId'],
+      where: {
+        assignedToUserId: { in: userIds },
+        isDeleted: false
+      },
+      _count: { id: true }
     });
   }
 }

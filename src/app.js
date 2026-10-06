@@ -26,6 +26,14 @@ import { kategoriMasalahRoutes } from './modules/kategori-masalah/kategori-masal
 import { masalahPegawaiRoutes } from './modules/masalah-pegawai/masalah-pegawai.routes.js';
 import { refJenisPensiunRoutes } from './modules/ref-jenis-pensiun/ref-jenis-pensiun.routes.js';
 import { pemberhentianRoutes } from './modules/pemberhentian/pemberhentian.routes.js';
+import { portalAuthRoutes } from './modules/portal-auth/portal-auth.routes.js';
+import { portalRoutes } from './modules/portal/portal.routes.js';
+import portalPerbaikanRoutes from './modules/portal-perbaikan/perbaikan.routes.js';
+import { verifikasiRoutes } from './modules/verifikasi-perbaikan/verifikasi.routes.js';
+import ttePortalRoutes from './modules/tte/tte-portal.routes.js';
+import ttePejabatRoutes from './modules/tte/tte-pejabat.routes.js';
+import pejabatAdminRoutes from './modules/tte/pejabat-admin.routes.js';
+import { authenticate, denyRole } from './middlewares/auth.middleware.js';
 import path from 'path';
 
 // Initialize Express
@@ -75,27 +83,38 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 app.get('/', (req, res) => {
   res.redirect('/api-docs');
 });
+
+// Guard khusus staf (menolak role 'pegawai')
+const staffGuard = [authenticate, denyRole('pegawai')];
+
 // Import and use routes module here eventually
 app.use('/api/health', healthRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/v1/p3k-csv-import', p3kCsvImportRoutes);
-app.use('/api/v1/p3k-paruh-waktu', p3kParuhWaktuRoutes);
-app.use('/api/v1/data-p3k', dataP3kRoutes);
-app.use('/api/v1/ref-unor', refUnorRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/kegiatan', kegiatanRoutes);
-app.use('/api/tasks-usulan', taskUsulanRoutes);
-app.use('/api/v1/kontrak', kontrakRoutes);
-app.use('/api/v1/perpanjangan', perpanjanganRoutes);
-app.use('/api/v1/gaji', gajiRoutes);
-app.use('/api/task-field-configs', taskFieldConfigRoutes);
-app.use('/api/v1/activity-logs', activityLogRoutes);
-app.use('/api/backup', backupRoutes);
+app.use('/api/v1/portal/auth', portalAuthRoutes);
+app.use('/api/v1/portal/perbaikan', portalPerbaikanRoutes);
+app.use('/api/v1/portal/tte', ttePortalRoutes);
+app.use('/api/v1/portal', portalRoutes);
+app.use('/api/v1/verifikasi-perbaikan', staffGuard, verifikasiRoutes);
+app.use('/api/v1/tte', staffGuard, ttePejabatRoutes);
+app.use('/api/v1/pejabat-penandatangan', staffGuard, pejabatAdminRoutes);
+app.use('/api/v1/p3k-csv-import', staffGuard, p3kCsvImportRoutes);
+app.use('/api/v1/p3k-paruh-waktu', staffGuard, p3kParuhWaktuRoutes);
+app.use('/api/v1/data-p3k', staffGuard, dataP3kRoutes);
+app.use('/api/v1/ref-unor', staffGuard, refUnorRoutes);
+app.use('/api/tasks', staffGuard, taskRoutes);
+app.use('/api/kegiatan', staffGuard, kegiatanRoutes);
+app.use('/api/tasks-usulan', staffGuard, taskUsulanRoutes);
+app.use('/api/v1/kontrak', staffGuard, kontrakRoutes);
+app.use('/api/v1/perpanjangan', staffGuard, perpanjanganRoutes);
+app.use('/api/v1/gaji', staffGuard, gajiRoutes);
+app.use('/api/task-field-configs', staffGuard, taskFieldConfigRoutes);
+app.use('/api/v1/activity-logs', staffGuard, activityLogRoutes);
+app.use('/api/backup', staffGuard, backupRoutes);
 app.use('/api/role-menus', roleMenuRoutes);
-app.use('/api/v1/kategori-masalah', kategoriMasalahRoutes);
-app.use('/api/v1/masalah-pegawai', masalahPegawaiRoutes);
-app.use('/api/v1/ref-jenis-pensiun', refJenisPensiunRoutes);
-app.use('/api/v1/pemberhentian', pemberhentianRoutes);
+app.use('/api/v1/kategori-masalah', staffGuard, kategoriMasalahRoutes);
+app.use('/api/v1/masalah-pegawai', staffGuard, masalahPegawaiRoutes);
+app.use('/api/v1/ref-jenis-pensiun', staffGuard, refJenisPensiunRoutes);
+app.use('/api/v1/pemberhentian', staffGuard, pemberhentianRoutes);
 
 // 404 Handler
 app.use(notFoundHandler);

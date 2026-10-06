@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { RoleMenuController } from './role-menu.controller.js';
-import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
+import { authenticate, authorize, denyRole } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -22,6 +22,9 @@ router.use(authenticate);
  *         description: Unauthorized
  */
 router.get('/my-menus', RoleMenuController.getMyMenus);
+
+// Batasi konfigurasi role menu agar tidak dapat diakses pegawai
+router.use(denyRole('pegawai'));
 
 /**
  * @swagger

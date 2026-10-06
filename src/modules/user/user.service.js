@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import prisma from '../../config/database.js';
 import userRepository from './user.repository.js';
 import { sendPasswordResetEmail } from '../../utils/email.service.js';
 function normalizeRoles(data) {
@@ -128,13 +129,47 @@ class UserService {
 
     const userRoles = String(user.role || 'user').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
 
+    // Jika user adalah pegawai portal, pastikan data P3K masih aktif
+    if (userRoles.includes('pegawai')) {
+      if (!user.dataP3kId && !user.dataP3kParuhWaktuId) {
+        const error = new Error('Akun pegawai tidak tertaut dengan data P3K aktif.');
+        error.statusCode = 403;
+        throw error;
+      }
+
+      if (user.dataP3kId) {
+        const p3k = await prisma.dataP3k.findFirst({
+          where: { id: user.dataP3kId, isDeleted: false, statusPensiun: 'AKTIF' },
+          select: { id: true }
+        });
+        if (!p3k) {
+          const error = new Error('Status kepegawaian Anda sudah tidak aktif atau pensiun.');
+          error.statusCode = 403;
+          throw error;
+        }
+      } else if (user.dataP3kParuhWaktuId) {
+        const paruh = await prisma.dataP3kParuhWaktu.findFirst({
+          where: { id: user.dataP3kParuhWaktuId, isDeleted: false, statusPensiun: 'AKTIF' },
+          select: { id: true }
+        });
+        if (!paruh) {
+          const error = new Error('Status kepegawaian Anda sudah tidak aktif atau pensiun.');
+          error.statusCode = 403;
+          throw error;
+        }
+      }
+    }
+
     // Generate JWT
     const token = jwt.sign(
       { 
         id: user.id,
         username: user.username,
         role: user.role,
-        roles: userRoles
+        roles: userRoles,
+        dataP3kId: user.dataP3kId || null,
+        dataP3kParuhWaktuId: user.dataP3kParuhWaktuId || null,
+        jenisPegawaiPortal: user.jenisPegawaiPortal || null
       },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
@@ -149,6 +184,10 @@ class UserService {
         role: user.role,
         roles: userRoles,
         foto: user.foto,
+        dataP3kId: user.dataP3kId || null,
+        dataP3kParuhWaktuId: user.dataP3kParuhWaktuId || null,
+        jenisPegawaiPortal: user.jenisPegawaiPortal || null,
+        mustChangePassword: Boolean(user.mustChangePassword),
         lastLoginAt: new Date(),
         lastActiveAt: new Date()
       },

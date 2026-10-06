@@ -77,6 +77,15 @@ export const MENU_CATALOG = [
     group: 'Data Kepegawaian',
     order: 2.6
   },
+  {
+    key: 'verifikasi-perbaikan',
+    label: 'Verifikasi Perbaikan Data',
+    path: '/verifikasi-perbaikan',
+    icon: 'ri-checkbox-multiple-line',
+    parentKey: 'data-utama',
+    group: 'Data Kepegawaian',
+    order: 2.7
+  },
 
   // 3. Perpanjangan PK (Dropdown)
   {
@@ -114,6 +123,15 @@ export const MENU_CATALOG = [
     parentKey: 'perpanjangan-pk',
     group: 'Perpanjangan Kontrak',
     order: 3.3
+  },
+  {
+    key: 'tte-kontrak',
+    label: 'Tanda Tangan Elektronik',
+    path: '/tte-kontrak',
+    icon: 'ri-quill-pen-line',
+    parentKey: 'perpanjangan-pk',
+    group: 'Perpanjangan Kontrak',
+    order: 3.4
   },
 
   // 4. Task User (Dropdown)
@@ -377,5 +395,16 @@ export const DEFAULT_PERMISSIONS = {
     'manajemen-pemberhentian',
     'laporan',
     'laporan-estimasi-pensiun'
+  ],
+  verifikator: [
+    'dashboard',
+    'data-utama',
+    'profil-pegawai',
+    'verifikasi-perbaikan'
+  ],
+  pejabat_ttd: [
+    'dashboard',
+    'perpanjangan-pk',
+    'tte-kontrak'
   ]
 };

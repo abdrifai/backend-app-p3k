@@ -480,6 +480,10 @@ export class DataP3kRepository {
           include: { arsipKontrak: true },
           orderBy: { kontrakKe: 'asc' }
         },
+        riwayatKeluarga: {
+          where: { isDeleted: false },
+          orderBy: { createdAt: 'asc' }
+        },
         usulanPerpanjangan: {
           where: { isDeleted: false },
           include: { templateKontrak: true },
@@ -498,6 +502,10 @@ export class DataP3kRepository {
         unorInduk: true,
         jenisPensiun: true,
         arsipSkPensiun: true,
+        riwayatKeluarga: {
+          where: { isDeleted: false },
+          orderBy: { createdAt: 'asc' }
+        }
       }
     });
 

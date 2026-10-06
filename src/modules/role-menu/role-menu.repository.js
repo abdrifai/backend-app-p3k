@@ -29,10 +29,14 @@ export class RoleMenuRepository {
       distinct: ['role']
     });
 
-    const set = new Set(['admin', 'user', 'pensiun']);
+    const set = new Set(['admin', 'user', 'pensiun', 'verifikator', 'pejabat_ttd']);
     userRoles.forEach(u => {
       if (u.role) {
-        u.role.toLowerCase().split(',').map(r => r.trim()).filter(Boolean).forEach(r => set.add(r));
+        u.role.toLowerCase().split(',').map(r => r.trim()).filter(Boolean).forEach(r => {
+          if (r !== 'pegawai') {
+            set.add(r);
+          }
+        });
       }
     });
 

@@ -47,9 +47,20 @@ class KinerjaSnapshotService {
       else if (rec.status === 'REJECTED') u.rejected++;
     }
 
+    const userIds = Array.from(userMap.keys());
+    const userTaskCounts = await PerpanjanganRepository.getUserTaskCounts(userIds);
+    const validUserIds = new Set(userTaskCounts.map(item => item.assignedToUserId));
+
+    const validUsers = Array.from(userMap.values()).filter(u => validUserIds.has(u.userId));
+
+    if (validUsers.length === 0) {
+      logger.info(`[KinerjaSnapshot] Tidak ada operator bertugas untuk ${dateStr}, snapshot dilewati.`);
+      return { tanggal: dateStr, totalUser: 0, totalRecords: 0 };
+    }
+
     const tanggalDate = new Date(`${dateStr}T00:00:00.000Z`);
 
-    const upsertOps = Array.from(userMap.values()).map(u =>
+    const upsertOps = validUsers.map(u =>
       prisma.rekapKinerjaHarian.upsert({
         where: { tanggal_userId: { tanggal: tanggalDate, userId: u.userId } },
         update: {
