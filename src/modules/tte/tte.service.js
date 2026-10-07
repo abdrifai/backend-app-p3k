@@ -217,38 +217,70 @@ export const tteService = {
   },
 
   async regeneratePdf(usulanId) {
-    const usulan = await tteRepository.findUsulanById(usulanId);
+    let usulan = await tteRepository.findUsulanById(usulanId);
     if (!usulan || usulan.isDeleted) {
       throw httpError('Dokumen perpanjangan kontrak tidak ditemukan', 404);
     }
 
-    let generatedFileUrl = usulan.generatedFileUrl;
+    // 1. Pastikan template kontrak terpasang dan valid
+    if (!usulan.templateKontrak || !usulan.templateKontrak.fileUrl) {
+      const activeTemplate = await tteRepository.findActiveTemplate();
+      if (!activeTemplate || !activeTemplate.fileUrl) {
+        throw httpError(
+          'Template kontrak tidak terpasang pada usulan ini dan tidak ada template aktif di sistem. Silakan atur template di menu Pengaturan Template Kontrak.',
+          400
+        );
+      }
+      await tteRepository.updateUsulan(usulanId, {
+        templateKontrakId: activeTemplate.id
+      });
+      usulan.templateKontrak = activeTemplate;
+      usulan.templateKontrakId = activeTemplate.id;
+    }
 
-    // Cek apakah file DOCX fisik ada di server
-    let docxPath = null;
-    if (generatedFileUrl) {
-      const cleanRel = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
-      const fullPath = path.join(process.cwd(), cleanRel);
-      if (fs.existsSync(fullPath)) {
-        docxPath = cleanRel;
+    // Verifikasi keberadaan file fisik template
+    const cleanTplPath = usulan.templateKontrak.fileUrl.startsWith('/')
+      ? usulan.templateKontrak.fileUrl.slice(1)
+      : usulan.templateKontrak.fileUrl;
+    const fullTplPath = path.join(process.cwd(), cleanTplPath);
+
+    if (!fs.existsSync(fullTplPath)) {
+      // Coba fallback ke template aktif jika file template lama hilang dari disk
+      const fallbackTemplate = await tteRepository.findActiveTemplate();
+      if (fallbackTemplate && fallbackTemplate.fileUrl) {
+        const cleanFallbackPath = fallbackTemplate.fileUrl.startsWith('/')
+          ? fallbackTemplate.fileUrl.slice(1)
+          : fallbackTemplate.fileUrl;
+        if (fs.existsSync(path.join(process.cwd(), cleanFallbackPath))) {
+          await tteRepository.updateUsulan(usulanId, {
+            templateKontrakId: fallbackTemplate.id
+          });
+          usulan.templateKontrak = fallbackTemplate;
+          usulan.templateKontrakId = fallbackTemplate.id;
+        } else {
+          throw httpError(`Berkas template kontrak fisik tidak ditemukan di server: ${cleanTplPath}`, 404);
+        }
+      } else {
+        throw httpError(`Berkas template kontrak fisik tidak ditemukan di server: ${cleanTplPath}`, 404);
       }
     }
 
-    // Jika DOCX belum ada atau file fisik hilang, generate ulang file Word dari template
-    if (!docxPath) {
-      if (!usulan.templateKontrak || !usulan.templateKontrak.fileUrl) {
-        throw httpError('Template kontrak tidak terpasang pada usulan ini sehingga dokumen tidak dapat digenerate ulang', 400);
-      }
+    // 2. SELALU generate ulang file Word (.docx) langsung dari template kontrak resmi
+    let generatedFileUrl;
+    try {
       generatedFileUrl = await PerpanjanganService._generateDocument(usulan);
-      docxPath = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
+    } catch (genErr) {
+      throw httpError(`Gagal men-generate dokumen dari template kontrak: ${genErr.message}`, 500);
     }
 
-    // Konversi DOCX ke PDF via LibreOffice headless (atau fallback valid PDF jika libreoffice belum ada)
+    const docxPath = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
+
+    // 3. Konversi file Word hasil template baru ke PDF
     const outPdfDir = path.join(process.cwd(), 'uploads', 'pdf-draft');
     const generatedPdfPath = await pdfService.convertDocxToPdf(docxPath, outPdfDir);
     const pdfDraftUrl = `/uploads/pdf-draft/${path.basename(generatedPdfPath)}`;
 
-    // Update usulan di database
+    // 4. Update data usulan di database dengan berkas baru
     const updated = await tteRepository.updateUsulan(usulanId, {
       generatedFileUrl,
       pdfDraftUrl

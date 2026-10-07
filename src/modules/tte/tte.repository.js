@@ -59,6 +59,16 @@ export const tteRepository = {
     });
   },
 
+  async findActiveTemplate() {
+    return prisma.templateKontrak.findFirst({
+      where: {
+        isDeleted: false,
+        isActive: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  },
+
   async findAntrianPejabat(statusTte, { search, page = 1, limit = 10 } = {}) {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, parseInt(limit, 10) || 10);
