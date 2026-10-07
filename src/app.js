@@ -48,6 +48,7 @@ app.use(
     contentSecurityPolicy: false, // Mematikan CSP agar script Swagger bisa jalan
     crossOriginResourcePolicy: false,
     crossOriginOpenerPolicy: false, // Menghilangkan error "untrustworthy origin" di log
+    frameguard: false // Izinkan embedding preview dokumen PDF di iframe
   })
 );
 

@@ -87,11 +87,58 @@ export const pdfService = {
       }
       throw new Error(`File output PDF tidak terbentuk di ${targetPdfPath}`);
     } catch (err) {
-      logger.warn(`LibreOffice headless gagal/tidak tersedia: ${err.message}. Menggunakan fallback PDF generator.`);
+      logger.warn(`LibreOffice headless gagal/tidak tersedia: ${err.message}. Menggunakan fallback PDF generator standar.`);
 
-      // Fallback untuk local/testing environment ketika LibreOffice belum terpasang di OS
-      const fallbackContent = `%PDF-1.4\n%Draft Dokumen Kontrak PDF\n%Source DOCX: ${baseName}.docx\n%Generated: ${new Date().toISOString()}\n%%EOF`;
-      fs.writeFileSync(targetPdfPath, fallbackContent);
+      // Fallback PDF 1.4 valid standar agar browser PDF viewer dapat merender tanpa error
+      const cleanTitle = (baseName || 'DRAFT KONTRAK KERJA').replace(/_/g, ' ');
+      const dateStr = new Date().toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+
+      const contentStream = `BT
+/F1 16 Tf
+50 780 Td
+(DRAFT PERJANJIAN KERJA PPPK) Tj
+/F1 10 Tf
+0 -24 Td
+(Pemerintah Kabupaten Tojo Una-Una - BKPSDM) Tj
+0 -18 Td
+(Berkas: ${cleanTitle}) Tj
+0 -18 Td
+(Tanggal Dibuat: ${dateStr}) Tj
+0 -30 Td
+(Status: Menunggu Proses TTE / Paraf Elektronik BSrE) Tj
+0 -20 Td
+(Dokumen ini adalah pratinjau draft kontrak kerja pegawai PPPK.) Tj
+0 -20 Td
+(Sertifikat elektronik BSrE akan disematkan saat penandatanganan.) Tj
+ET`;
+      const streamLen = Buffer.byteLength(contentStream);
+
+      let pdf = '%PDF-1.4\n';
+      const offsets = [];
+
+      function addObj(str) {
+        offsets.push(Buffer.byteLength(pdf));
+        pdf += str + '\n';
+      }
+
+      addObj('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj');
+      addObj('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj');
+      addObj('3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj');
+      addObj(`4 0 obj\n<< /Length ${streamLen} >>\nstream\n${contentStream}\nendstream\nendobj`);
+      addObj('5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj');
+
+      const startxref = Buffer.byteLength(pdf);
+      pdf += 'xref\n0 6\n0000000000 65535 f \n';
+      for (let i = 0; i < 5; i++) {
+        pdf += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+      }
+      pdf += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${startxref}\n%%EOF\n`;
+
+      fs.writeFileSync(targetPdfPath, Buffer.from(pdf, 'utf-8'));
 
       return targetPdfPath;
     }
