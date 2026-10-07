@@ -90,6 +90,7 @@ const staffGuard = [authenticate, denyRole('pegawai')];
 // Import and use routes module here eventually
 app.use('/api/health', healthRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/portal/auth', portalAuthRoutes);
 app.use('/api/v1/portal/perbaikan', portalPerbaikanRoutes);
 app.use('/api/v1/portal/tte', ttePortalRoutes);
