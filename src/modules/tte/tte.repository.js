@@ -223,8 +223,40 @@ export const tteRepository = {
       })
     ]);
 
+    const calculatedItems = items.map((item) => {
+      let durasiTahun = null;
+      let masaKontrak = null;
+      if (item.tanggalMulai && item.tanggalSelesai) {
+        try {
+          const start = new Date(item.tanggalMulai);
+          const end = new Date(item.tanggalSelesai);
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+            const endInclusive = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
+            let years = endInclusive.getFullYear() - start.getFullYear();
+            let months = endInclusive.getMonth() - start.getMonth();
+            let days = endInclusive.getDate() - start.getDate();
+            if (days < 0) months--;
+            if (months < 0) {
+              years--;
+              months += 12;
+            }
+            durasiTahun = years;
+            const parts = [];
+            if (years > 0) parts.push(`${years} Tahun`);
+            if (months > 0) parts.push(`${months} Bulan`);
+            masaKontrak = parts.length > 0 ? parts.join(' ') : '1 Bulan';
+          }
+        } catch (_) {}
+      }
+      return {
+        ...item,
+        durasiTahun,
+        masaKontrak
+      };
+    });
+
     return {
-      data: items,
+      data: calculatedItems,
       pagination: {
         page: pageNum,
         limit: limitNum,
