@@ -107,6 +107,16 @@ export const getMonitoringTteStats = asyncHandler(async (req, res) => {
   });
 });
 
+export const regeneratePdf = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const result = await tteService.regeneratePdf(id);
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: 'Berkas PDF berhasil digenerate ulang dari dokumen template'
+  });
+});
+
 export const signPejabat = asyncHandler(async (req, res) => {
   const { error, value } = signPassphraseSchema.validate(req.body);
   if (error) {

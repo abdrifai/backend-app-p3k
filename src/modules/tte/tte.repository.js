@@ -48,6 +48,17 @@ export const tteRepository = {
     });
   },
 
+  async updateUsulan(id, data) {
+    return prisma.usulanPerpanjangan.update({
+      where: { id },
+      data,
+      include: {
+        dataP3k: true,
+        templateKontrak: true
+      }
+    });
+  },
+
   async findAntrianPejabat(statusTte, { search, page = 1, limit = 10 } = {}) {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, parseInt(limit, 10) || 10);

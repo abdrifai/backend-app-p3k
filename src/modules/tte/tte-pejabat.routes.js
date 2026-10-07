@@ -5,6 +5,7 @@ import {
   getStatistikPejabat,
   getMonitoringTte,
   getMonitoringTteStats,
+  regeneratePdf,
   signPejabat,
   tolakPejabat
 } from './tte.controller.js';
@@ -68,6 +69,29 @@ router.get('/monitoring', monitoringGuard, getMonitoringTte);
  *         description: Berhasil memuat statistik monitoring TTE
  */
 router.get('/monitoring/statistik', monitoringGuard, getMonitoringTteStats);
+
+/**
+ * @swagger
+ * /api/v1/tte/{id}/regenerate-pdf:
+ *   post:
+ *     summary: Generate ulang berkas PDF dokumen kontrak dari template Word
+ *     tags: [Pejabat TTE]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID usulan perpanjangan kontrak
+ *     responses:
+ *       200:
+ *         description: Berkas PDF berhasil digenerate ulang
+ *       404:
+ *         description: Dokumen tidak ditemukan
+ */
+router.post('/:id/regenerate-pdf', monitoringGuard, regeneratePdf);
 
 /**
  * @swagger

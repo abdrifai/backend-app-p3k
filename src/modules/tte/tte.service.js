@@ -1,8 +1,12 @@
+import fs from 'fs';
+import path from 'path';
 import { tteRepository } from './tte.repository.js';
 import bsreClient from './bsre.client.js';
 import { STATUS_TTE, TAHAP_TTE, JENIS_TTE, JABATAN_PEJABAT } from './bsre.constants.js';
 import activityLogService from '../activity-log/activityLog.service.js';
 import tteNotifikasiService from './tte-notifikasi.service.js';
+import pdfService from './pdf.service.js';
+import { PerpanjanganService } from '../perpanjangan/perpanjangan.service.js';
 
 /**
  * Pemetaan jabatan pejabat ke tahap TTE yang menjadi wewenangnya.
@@ -210,6 +214,53 @@ export const tteService = {
 
   async getMonitoringTteStats() {
     return tteRepository.getMonitoringTteStats();
+  },
+
+  async regeneratePdf(usulanId) {
+    const usulan = await tteRepository.findUsulanById(usulanId);
+    if (!usulan || usulan.isDeleted) {
+      throw httpError('Dokumen perpanjangan kontrak tidak ditemukan', 404);
+    }
+
+    let generatedFileUrl = usulan.generatedFileUrl;
+
+    // Cek apakah file DOCX fisik ada di server
+    let docxPath = null;
+    if (generatedFileUrl) {
+      const cleanRel = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
+      const fullPath = path.join(process.cwd(), cleanRel);
+      if (fs.existsSync(fullPath)) {
+        docxPath = cleanRel;
+      }
+    }
+
+    // Jika DOCX belum ada atau file fisik hilang, generate ulang file Word dari template
+    if (!docxPath) {
+      if (!usulan.templateKontrak || !usulan.templateKontrak.fileUrl) {
+        throw httpError('Template kontrak tidak terpasang pada usulan ini sehingga dokumen tidak dapat digenerate ulang', 400);
+      }
+      generatedFileUrl = await PerpanjanganService._generateDocument(usulan);
+      docxPath = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
+    }
+
+    // Konversi DOCX ke PDF via LibreOffice headless (atau fallback valid PDF jika libreoffice belum ada)
+    const outPdfDir = path.join(process.cwd(), 'uploads', 'pdf-draft');
+    const generatedPdfPath = await pdfService.convertDocxToPdf(docxPath, outPdfDir);
+    const pdfDraftUrl = `/uploads/pdf-draft/${path.basename(generatedPdfPath)}`;
+
+    // Update usulan di database
+    const updated = await tteRepository.updateUsulan(usulanId, {
+      generatedFileUrl,
+      pdfDraftUrl
+    });
+
+    return {
+      id: updated.id,
+      nomorKontrak: updated.nomorKontrak,
+      generatedFileUrl: updated.generatedFileUrl,
+      pdfDraftUrl: updated.pdfDraftUrl,
+      statusTte: updated.statusTte
+    };
   },
 
   async signPejabat(userId, usulanId, passphrase, ipAddress) {
