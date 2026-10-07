@@ -2,6 +2,73 @@ import { tteRepository } from './tte.repository.js';
 import bsreClient from './bsre.client.js';
 import { STATUS_TTE, TAHAP_TTE, JENIS_TTE, JABATAN_PEJABAT } from './bsre.constants.js';
 import activityLogService from '../activity-log/activityLog.service.js';
+import tteNotifikasiService from './tte-notifikasi.service.js';
+
+/**
+ * Pemetaan jabatan pejabat ke tahap TTE yang menjadi wewenangnya.
+ */
+const TAHAP_PER_JABATAN = {
+  [JABATAN_PEJABAT.KEPALA_BKPSDM]: {
+    statusSaatIni: STATUS_TTE.MENUNGGU_PARAF_KABAN,
+    statusBerikutnya: STATUS_TTE.MENUNGGU_PARAF_SEKDA,
+    tahap: TAHAP_TTE.PARAF_KABAN,
+    label: 'Paraf Kepala BKPSDM'
+  },
+  [JABATAN_PEJABAT.SEKDA]: {
+    statusSaatIni: STATUS_TTE.MENUNGGU_PARAF_SEKDA,
+    statusBerikutnya: STATUS_TTE.MENUNGGU_TTE_PEGAWAI,
+    tahap: TAHAP_TTE.PARAF_SEKDA,
+    label: 'Paraf Sekda'
+  },
+  [JABATAN_PEJABAT.BUPATI]: {
+    statusSaatIni: STATUS_TTE.MENUNGGU_TTE_BUPATI,
+    statusBerikutnya: STATUS_TTE.TTE_SELESAI,
+    tahap: TAHAP_TTE.TTE_BUPATI,
+    label: 'TTE Bupati'
+  }
+};
+
+const httpError = (message, status) => {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+};
+
+const getTahapPejabat = (jabatan) => {
+  const tahap = TAHAP_PER_JABATAN[jabatan];
+  if (!tahap) {
+    throw httpError('Jabatan penandatangan tidak valid', 400);
+  }
+  return tahap;
+};
+
+const getPejabatAktifOrThrow = async (userId) => {
+  const pejabat = await tteRepository.findPejabatByUserId(userId);
+  if (!pejabat) {
+    throw httpError('Pengguna tidak terdaftar sebagai pejabat penandatangan aktif', 403);
+  }
+  return pejabat;
+};
+
+const getUsulanDiTahapPejabatOrThrow = async (usulanId, tahapPejabat) => {
+  const usulan = await tteRepository.findUsulanById(usulanId);
+  if (!usulan) {
+    throw httpError('Dokumen perpanjangan tidak ditemukan', 404);
+  }
+  if (usulan.statusTte !== tahapPejabat.statusSaatIni) {
+    throw httpError(
+      `Dokumen belum/tidak berada pada tahap ${tahapPejabat.label} (Status saat ini: ${usulan.statusTte || '-'})`,
+      400
+    );
+  }
+  return usulan;
+};
+
+const hasRole = (roleString, target) =>
+  String(roleString || '')
+    .split(',')
+    .map((r) => r.trim().toLowerCase())
+    .includes(target);
 
 export const tteService = {
   async getAntrianPegawai(pegawai) {
@@ -82,29 +149,20 @@ export const tteService = {
       { nomorKontrak: usulan.nomorKontrak, tahap: TAHAP_TTE.TTE_PEGAWAI }
     );
 
+    // Notifikasi email ke Bupati (Tahap berikutnya: MENUNGGU_TTE_BUPATI)
+    tteNotifikasiService
+      .kirimNotifikasiTahapBerikutnya(STATUS_TTE.MENUNGGU_TTE_BUPATI, {
+        ...usulan,
+        nomorKontrak: usulan.nomorKontrak
+      })
+      .catch(() => {});
+
     return result;
   },
 
   async getAntrianPejabat(userId, query) {
-    const pejabat = await tteRepository.findPejabatByUserId(userId);
-    if (!pejabat) {
-      const err = new Error('Pengguna tidak terdaftar sebagai pejabat penandatangan aktif');
-      err.status = 403;
-      throw err;
-    }
-
-    let statusTte;
-    if (pejabat.jabatan === JABATAN_PEJABAT.KEPALA_BKPSDM) {
-      statusTte = STATUS_TTE.MENUNGGU_PARAF_KABAN;
-    } else if (pejabat.jabatan === JABATAN_PEJABAT.SEKDA) {
-      statusTte = STATUS_TTE.MENUNGGU_PARAF_SEKDA;
-    } else if (pejabat.jabatan === JABATAN_PEJABAT.BUPATI) {
-      statusTte = STATUS_TTE.MENUNGGU_TTE_BUPATI;
-    } else {
-      const err = new Error('Jabatan penandatangan tidak valid');
-      err.status = 400;
-      throw err;
-    }
+    const pejabat = await getPejabatAktifOrThrow(userId);
+    const { statusSaatIni: statusTte } = getTahapPejabat(pejabat.jabatan);
 
     const result = await tteRepository.findAntrianPejabat(statusTte, query);
     return {
@@ -118,43 +176,47 @@ export const tteService = {
     };
   },
 
+  async getRiwayatPejabat(userId, query) {
+    const pejabat = await getPejabatAktifOrThrow(userId);
+    const result = await tteRepository.findRiwayatPejabat(userId, query);
+    return {
+      pejabat: {
+        jabatan: pejabat.jabatan,
+        nama: pejabat.nama,
+        jenis: pejabat.jenis
+      },
+      ...result
+    };
+  },
+
+  async getStatistikPejabat(userId) {
+    const pejabat = await getPejabatAktifOrThrow(userId);
+    const { statusSaatIni: statusTte } = getTahapPejabat(pejabat.jabatan);
+    const stats = await tteRepository.findStatistikPejabat(userId, statusTte);
+    return {
+      pejabat: {
+        jabatan: pejabat.jabatan,
+        nama: pejabat.nama,
+        jenis: pejabat.jenis,
+        statusTteMenunggu: statusTte
+      },
+      stats
+    };
+  },
+
+  async getMonitoringTte(query) {
+    return tteRepository.findMonitoringTte(query);
+  },
+
+  async getMonitoringTteStats() {
+    return tteRepository.getMonitoringTteStats();
+  },
+
   async signPejabat(userId, usulanId, passphrase, ipAddress) {
-    const pejabat = await tteRepository.findPejabatByUserId(userId);
-    if (!pejabat) {
-      const err = new Error('Pengguna tidak terdaftar sebagai pejabat penandatangan aktif');
-      err.status = 403;
-      throw err;
-    }
-
-    const usulan = await tteRepository.findUsulanById(usulanId);
-    if (!usulan) {
-      const err = new Error('Dokumen perpanjangan tidak ditemukan');
-      err.status = 404;
-      throw err;
-    }
-
-    let tahap;
-    let statusBerikutnya;
-
-    if (pejabat.jabatan === JABATAN_PEJABAT.KEPALA_BKPSDM) {
-      if (usulan.statusTte !== STATUS_TTE.MENUNGGU_PARAF_KABAN) {
-        throw new Error('Dokumen belum berada pada tahap Paraf Kepala BKPSDM');
-      }
-      tahap = TAHAP_TTE.PARAF_KABAN;
-      statusBerikutnya = STATUS_TTE.MENUNGGU_PARAF_SEKDA;
-    } else if (pejabat.jabatan === JABATAN_PEJABAT.SEKDA) {
-      if (usulan.statusTte !== STATUS_TTE.MENUNGGU_PARAF_SEKDA) {
-        throw new Error('Dokumen belum berada pada tahap Paraf Sekda');
-      }
-      tahap = TAHAP_TTE.PARAF_SEKDA;
-      statusBerikutnya = STATUS_TTE.MENUNGGU_TTE_PEGAWAI;
-    } else if (pejabat.jabatan === JABATAN_PEJABAT.BUPATI) {
-      if (usulan.statusTte !== STATUS_TTE.MENUNGGU_TTE_BUPATI) {
-        throw new Error('Dokumen belum berada pada tahap TTE Bupati');
-      }
-      tahap = TAHAP_TTE.TTE_BUPATI;
-      statusBerikutnya = STATUS_TTE.TTE_SELESAI;
-    }
+    const pejabat = await getPejabatAktifOrThrow(userId);
+    const tahapPejabat = getTahapPejabat(pejabat.jabatan);
+    const usulan = await getUsulanDiTahapPejabatOrThrow(usulanId, tahapPejabat);
+    const { tahap, statusBerikutnya } = tahapPejabat;
 
     // Panggil BSrE
     const signResult = await bsreClient.signPdf({
@@ -185,23 +247,22 @@ export const tteService = {
       { nomorKontrak: usulan.nomorKontrak, tahap, statusBerikutnya }
     );
 
+    // Notifikasi email ke pejabat tahap berikutnya (misal: Kaban selesai Paraf -> notifikasi ke Sekda)
+    tteNotifikasiService
+      .kirimNotifikasiTahapBerikutnya(statusBerikutnya, {
+        ...usulan,
+        nomorKontrak: usulan.nomorKontrak
+      })
+      .catch(() => {});
+
     return result;
   },
 
   async tolakPejabat(userId, usulanId, catatan, ipAddress) {
-    const pejabat = await tteRepository.findPejabatByUserId(userId);
-    if (!pejabat) {
-      const err = new Error('Pengguna tidak terdaftar sebagai pejabat penandatangan');
-      err.status = 403;
-      throw err;
-    }
-
-    const usulan = await tteRepository.findUsulanById(usulanId);
-    if (!usulan) {
-      const err = new Error('Dokumen tidak ditemukan');
-      err.status = 404;
-      throw err;
-    }
+    const pejabat = await getPejabatAktifOrThrow(userId);
+    const tahapPejabat = getTahapPejabat(pejabat.jabatan);
+    // Pejabat hanya boleh menolak dokumen yang sedang berada di tahap wewenangnya
+    const usulan = await getUsulanDiTahapPejabatOrThrow(usulanId, tahapPejabat);
 
     const result = await tteRepository.applyTolakTte({
       usulan,
@@ -229,15 +290,78 @@ export const tteService = {
     return tteRepository.listPejabat();
   },
 
+  async _validatePejabatData(data, excludeId = null) {
+    if (data.userId) {
+      const user = await tteRepository.findUserRoleById(data.userId);
+      if (!user) {
+        throw httpError('Akun pengguna tidak ditemukan atau sudah dinonaktifkan', 404);
+      }
+      if (!hasRole(user.role, 'pejabat_ttd')) {
+        throw httpError(
+          'Akun pengguna belum memiliki role "pejabat_ttd". Tambahkan role tersebut di Manajemen User terlebih dahulu',
+          400
+        );
+      }
+    }
+
+    if (data.jabatan && data.isActive !== false) {
+      const bentrok = await tteRepository.findActivePejabatByJabatan(data.jabatan, excludeId);
+      if (bentrok) {
+        throw httpError(
+          `Jabatan ${data.jabatan} sudah diisi oleh pejabat aktif (${bentrok.nama}). Nonaktifkan pejabat tersebut terlebih dahulu`,
+          409
+        );
+      }
+    }
+  },
+
   async createPejabat(data) {
+    await this._validatePejabatData(data);
+
+    const existing = await tteRepository.findPejabatRecordByUserId(data.userId);
+    if (existing && !existing.isDeleted) {
+      throw httpError('Akun pengguna ini sudah terdaftar sebagai pejabat penandatangan', 409);
+    }
+    if (existing && existing.isDeleted) {
+      // userId bersifat unik: pulihkan record lama yang sudah di-soft-delete
+      return tteRepository.updatePejabat(existing.id, { ...data, isDeleted: false });
+    }
+
     return tteRepository.createPejabat(data);
   },
 
   async updatePejabat(id, data) {
+    const current = await tteRepository.findPejabatById(id);
+    if (!current) {
+      throw httpError('Pejabat penandatangan tidak ditemukan', 404);
+    }
+
+    const userIdBerubah = Boolean(data.userId && data.userId !== current.userId);
+
+    if (userIdBerubah) {
+      const existing = await tteRepository.findPejabatRecordByUserId(data.userId);
+      if (existing) {
+        throw httpError('Akun pengguna ini sudah tertaut ke data pejabat lain', 409);
+      }
+    }
+
+    await this._validatePejabatData(
+      {
+        userId: userIdBerubah ? data.userId : null,
+        jabatan: data.jabatan || current.jabatan,
+        isActive: data.isActive !== undefined ? data.isActive : current.isActive
+      },
+      id
+    );
+
     return tteRepository.updatePejabat(id, data);
   },
 
   async deletePejabat(id) {
+    const current = await tteRepository.findPejabatById(id);
+    if (!current) {
+      throw httpError('Pejabat penandatangan tidak ditemukan', 404);
+    }
     return tteRepository.deletePejabat(id);
   }
 };

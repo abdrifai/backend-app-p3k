@@ -49,7 +49,9 @@ export const tteRepository = {
   },
 
   async findAntrianPejabat(statusTte, { search, page = 1, limit = 10 } = {}) {
-    const skip = (page - 1) * limit;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const skip = (pageNum - 1) * limitNum;
     const where = {
       isDeleted: false,
       statusTte
@@ -69,7 +71,7 @@ export const tteRepository = {
       prisma.usulanPerpanjangan.findMany({
         where,
         skip,
-        take: limit,
+        take: limitNum,
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -97,11 +99,192 @@ export const tteRepository = {
     return {
       data: items,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limitNum)
       }
+    };
+  },
+
+  async findRiwayatPejabat(userId, { search, status, page = 1, limit = 10 } = {}) {
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const skip = (pageNum - 1) * limitNum;
+    const where = {
+      userId,
+      ...(status ? { status } : {})
+    };
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      where.usulan = {
+        OR: [
+          { nomorKontrak: { contains: q } },
+          { dataP3k: { nama: { contains: q } } },
+          { dataP3k: { nipBaru: { contains: q } } }
+        ]
+      };
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.logTandaTangan.count({ where }),
+      prisma.logTandaTangan.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          usulan: {
+            select: {
+              id: true,
+              nomorKontrak: true,
+              kontrakKe: true,
+              tanggalMulai: true,
+              tanggalSelesai: true,
+              statusTte: true,
+              pdfDraftUrl: true,
+              pdfSignedUrl: true,
+              dataP3k: {
+                select: {
+                  nama: true,
+                  nipBaru: true,
+                  jabatanNama: true,
+                  unorNama: true
+                }
+              }
+            }
+          }
+        }
+      })
+    ]);
+
+    return {
+      data: items,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    };
+  },
+
+  async findMonitoringTte({ search, statusTte, page = 1, limit = 10 } = {}) {
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where = {
+      isDeleted: false,
+      statusTte: { not: null }
+    };
+
+    if (statusTte && statusTte.trim() && statusTte !== 'ALL') {
+      where.statusTte = statusTte.trim();
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { nomorKontrak: { contains: q } },
+        { dataP3k: { nama: { contains: q } } },
+        { dataP3k: { nipBaru: { contains: q } } },
+        { dataP3k: { unorNama: { contains: q } } }
+      ];
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.usulanPerpanjangan.count({ where }),
+      prisma.usulanPerpanjangan.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          dataP3k: {
+            select: {
+              id: true,
+              nama: true,
+              nipBaru: true,
+              nik: true,
+              jabatanNama: true,
+              unorNama: true,
+              golAkhirNama: true
+            }
+          },
+          logTandaTangan: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              user: { select: { namaLengkap: true, role: true } }
+            }
+          }
+        }
+      })
+    ]);
+
+    return {
+      data: items,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    };
+  },
+
+  async getMonitoringTteStats() {
+    const [
+      total,
+      menungguPegawai,
+      menungguKaban,
+      menungguSekda,
+      menungguBupati,
+      selesai,
+      ditolak
+    ] = await Promise.all([
+      prisma.usulanPerpanjangan.count({ where: { isDeleted: false, statusTte: { not: null } } }),
+      prisma.usulanPerpanjangan.count({ where: { isDeleted: false, statusTte: 'MENUNGGU_TTE_PEGAWAI' } }),
+      prisma.usulanPerpanjangan.count({ where: { isDeleted: false, statusTte: 'MENUNGGU_PARAF_KABAN' } }),
+      prisma.usulanPerpanjangan.count({ where: { isDeleted: false, statusTte: 'MENUNGGU_PARAF_SEKDA' } }),
+      prisma.usulanPerpanjangan.count({ where: { isDeleted: false, statusTte: 'MENUNGGU_TTE_BUPATI' } }),
+      prisma.usulanPerpanjangan.count({ where: { isDeleted: false, statusTte: 'TTE_SELESAI' } }),
+      prisma.usulanPerpanjangan.count({ where: { isDeleted: false, statusTte: 'DITOLAK' } })
+    ]);
+
+    return {
+      total,
+      menungguPegawai,
+      menungguKaban,
+      menungguSekda,
+      menungguBupati,
+      selesai,
+      ditolak
+    };
+  },
+
+  async findStatistikPejabat(userId, statusTteMenunggu) {
+    const [antrianCount, riwayatSuksesCount, riwayatTolakCount, totalSelesaiPemda] = await Promise.all([
+      prisma.usulanPerpanjangan.count({
+        where: { isDeleted: false, statusTte: statusTteMenunggu }
+      }),
+      prisma.logTandaTangan.count({
+        where: { userId, status: 'SUKSES' }
+      }),
+      prisma.logTandaTangan.count({
+        where: { userId, status: 'DITOLAK' }
+      }),
+      prisma.usulanPerpanjangan.count({
+        where: { isDeleted: false, statusTte: 'TTE_SELESAI' }
+      })
+    ]);
+
+    return {
+      antrianCount,
+      riwayatSuksesCount,
+      riwayatTolakCount,
+      totalSelesaiPemda
     };
   },
 
@@ -118,6 +301,45 @@ export const tteRepository = {
       include: {
         user: { select: { id: true, username: true, email: true, namaLengkap: true } }
       }
+    });
+  },
+
+  async findActivePejabatByJabatan(jabatan, excludeId = null) {
+    return prisma.pejabatPenandatangan.findFirst({
+      where: {
+        jabatan,
+        isActive: true,
+        isDeleted: false,
+        ...(excludeId ? { id: { not: excludeId } } : {})
+      },
+      select: {
+        id: true,
+        nama: true,
+        jabatan: true,
+        user: { select: { id: true, email: true, username: true, namaLengkap: true } }
+      }
+    });
+  },
+
+  async findPejabatById(id) {
+    return prisma.pejabatPenandatangan.findFirst({
+      where: { id, isDeleted: false },
+      select: { id: true, userId: true, jabatan: true, isActive: true }
+    });
+  },
+
+  async findPejabatRecordByUserId(userId) {
+    // Termasuk yang sudah soft-delete, karena userId bersifat @unique
+    return prisma.pejabatPenandatangan.findUnique({
+      where: { userId },
+      select: { id: true, isDeleted: true }
+    });
+  },
+
+  async findUserRoleById(userId) {
+    return prisma.user.findFirst({
+      where: { id: userId, isDeleted: false },
+      select: { id: true, role: true }
     });
   },
 
@@ -167,7 +389,9 @@ export const tteRepository = {
         }
       });
 
-      // 3. Bila TTE Selesai, buatkan RiwayatKontrak secara otomatis
+      // 3. Bila TTE Selesai, tautkan dokumen final ke RiwayatKontrak.
+      //    RiwayatKontrak sudah dibuat saat usulan di-APPROVE (lengkap dengan gaji, MK, golongan),
+      //    jadi di sini cukup diperbarui. Buat baru hanya jika belum ada (fallback).
       if (isFinal) {
         let arsipKontrakId = null;
         if (signedFileUrl) {
@@ -180,16 +404,38 @@ export const tteRepository = {
           arsipKontrakId = arsip.id;
         }
 
-        await tx.riwayatKontrak.create({
-          data: {
+        const kontrakKe = usulan.kontrakKe !== null && usulan.kontrakKe !== undefined ? Number(usulan.kontrakKe) : null;
+
+        const existingRiwayat = await tx.riwayatKontrak.findFirst({
+          where: {
             dataP3kId: usulan.dataP3kId,
-            kontrakKe: usulan.kontrakKe !== null && usulan.kontrakKe !== undefined ? Number(usulan.kontrakKe) : 1,
-            nomorKontrak: usulan.nomorKontrak || '',
-            tanggalMulai: usulan.tanggalMulai,
-            tanggalSelesai: usulan.tanggalSelesai,
-            arsipKontrakId
-          }
+            isDeleted: false,
+            ...(usulan.nomorKontrak ? { nomorKontrak: usulan.nomorKontrak } : {}),
+            ...(kontrakKe !== null ? { kontrakKe } : {})
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true }
         });
+
+        if (existingRiwayat) {
+          if (arsipKontrakId) {
+            await tx.riwayatKontrak.update({
+              where: { id: existingRiwayat.id },
+              data: { arsipKontrakId }
+            });
+          }
+        } else {
+          await tx.riwayatKontrak.create({
+            data: {
+              dataP3kId: usulan.dataP3kId,
+              kontrakKe: kontrakKe !== null ? kontrakKe : 1,
+              nomorKontrak: usulan.nomorKontrak || '',
+              tanggalMulai: usulan.tanggalMulai,
+              tanggalSelesai: usulan.tanggalSelesai,
+              arsipKontrakId
+            }
+          });
+        }
       }
 
       return updatedUsulan;

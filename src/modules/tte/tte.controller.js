@@ -1,5 +1,5 @@
 import { asyncHandler } from '../../middlewares/error.middleware.js';
-import { signPassphraseSchema, tolakTteSchema, pejabatPenandatanganSchema } from './tte.validation.js';
+import { signPassphraseSchema, tolakTteSchema, pejabatPenandatanganSchema, pejabatPenandatanganUpdateSchema } from './tte.validation.js';
 import { tteService } from './tte.service.js';
 
 // Controller Pegawai
@@ -64,6 +64,46 @@ export const getAntrianPejabat = asyncHandler(async (req, res) => {
     pejabat: result.pejabat,
     pagination: result.pagination,
     message: 'Antrian dokumen penandatangan berhasil diambil'
+  });
+});
+
+export const getRiwayatPejabat = asyncHandler(async (req, res) => {
+  const result = await tteService.getRiwayatPejabat(req.user.id, req.query);
+  res.status(200).json({
+    success: true,
+    data: result.data,
+    pejabat: result.pejabat,
+    pagination: result.pagination,
+    message: 'Riwayat dokumen penandatangan berhasil diambil'
+  });
+});
+
+export const getStatistikPejabat = asyncHandler(async (req, res) => {
+  const result = await tteService.getStatistikPejabat(req.user.id);
+  res.status(200).json({
+    success: true,
+    data: result.stats,
+    pejabat: result.pejabat,
+    message: 'Statistik dokumen penandatangan berhasil diambil'
+  });
+});
+
+export const getMonitoringTte = asyncHandler(async (req, res) => {
+  const result = await tteService.getMonitoringTte(req.query);
+  res.status(200).json({
+    success: true,
+    data: result.data,
+    pagination: result.pagination,
+    message: 'Data monitoring TTE dokumen berhasil diambil'
+  });
+});
+
+export const getMonitoringTteStats = asyncHandler(async (req, res) => {
+  const stats = await tteService.getMonitoringTteStats();
+  res.status(200).json({
+    success: true,
+    data: stats,
+    message: 'Statistik monitoring TTE berhasil diambil'
   });
 });
 
@@ -141,7 +181,15 @@ export const createPejabat = asyncHandler(async (req, res) => {
 });
 
 export const updatePejabat = asyncHandler(async (req, res) => {
-  const data = await tteService.updatePejabat(req.params.id, req.body);
+  const { error, value } = pejabatPenandatanganUpdateSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details.map(d => d.message).join(', ')
+    });
+  }
+
+  const data = await tteService.updatePejabat(req.params.id, value);
   res.status(200).json({
     success: true,
     data,

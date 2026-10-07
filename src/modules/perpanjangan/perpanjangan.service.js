@@ -9,6 +9,9 @@ import { KontrakRepository } from '../kontrak/kontrak.repository.js';
 import { GajiService } from '../gaji/gaji.service.js';
 import TaskUsulanRepository from '../task-usulan/task-usulan.repository.js';
 import activityLogService from '../activity-log/activityLog.service.js';
+import pdfService from '../tte/pdf.service.js';
+import tteNotifikasiService from '../tte/tte-notifikasi.service.js';
+import { STATUS_TTE } from '../tte/bsre.constants.js';
 
 export class PerpanjanganService {
   // --- Template ---
@@ -181,19 +184,39 @@ export class PerpanjanganService {
     }
 
     let generatedFileUrl = null;
+    let pdfDraftUrl = null;
 
     // Generate Word document if template is attached
     if (usulan.templateKontrak && usulan.templateKontrak.fileUrl) {
       generatedFileUrl = await this._generateDocument(usulan);
+
+      // Konversi DOCX ke PDF via LibreOffice headless (atau fallback bila binary belum terpasang)
+      try {
+        const outPdfDir = path.join(process.cwd(), 'uploads', 'pdf-draft');
+        const relativeDocx = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
+        const generatedPdfPath = await pdfService.convertDocxToPdf(relativeDocx, outPdfDir);
+        pdfDraftUrl = `/uploads/pdf-draft/${path.basename(generatedPdfPath)}`;
+      } catch (pdfErr) {
+        // Jika gagal, tetap gunakan generatedFileUrl sebagai fallback agar tidak memblok alur
+        pdfDraftUrl = generatedFileUrl;
+      }
     }
 
     // Update status to APPROVED & inisialisasi alur TTE
     const updated = await PerpanjanganRepository.updateUsulanStatus(id, {
       status: 'APPROVED',
       generatedFileUrl,
-      statusTte: 'MENUNGGU_PARAF_KABAN',
-      pdfDraftUrl: generatedFileUrl
+      statusTte: STATUS_TTE.MENUNGGU_PARAF_KABAN,
+      pdfDraftUrl: pdfDraftUrl || generatedFileUrl
     });
+
+    // Kirim notifikasi email ke Kepala BKPSDM (Tahap 1 Paraf)
+    tteNotifikasiService
+      .kirimNotifikasiTahapBerikutnya(STATUS_TTE.MENUNGGU_PARAF_KABAN, {
+        ...usulan,
+        nomorKontrak: usulan.nomorKontrak
+      })
+      .catch(() => {});
 
     // Get additional data for history
     const templateData = await this._getTemplateData(usulan);

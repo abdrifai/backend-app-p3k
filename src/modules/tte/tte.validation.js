@@ -29,3 +29,17 @@ export const pejabatPenandatanganSchema = Joi.object({
   urutan: Joi.number().integer().min(1).required(),
   isActive: Joi.boolean().default(true)
 });
+
+export const pejabatPenandatanganUpdateSchema = Joi.object({
+  userId: Joi.string().optional(),
+  jabatan: Joi.string().valid(...Object.values(JABATAN_PEJABAT)).optional(),
+  nama: Joi.string().optional(),
+  nip: Joi.string().allow('', null).optional(),
+  nik: Joi.string().length(16).pattern(/^[0-9]+$/).optional().messages({
+    'string.length': 'NIK harus terdiri dari 16 digit angka',
+    'string.pattern.base': 'NIK harus berupa angka'
+  }),
+  jenis: Joi.string().valid(...Object.values(JENIS_TTE)).optional(),
+  urutan: Joi.number().integer().min(1).optional(),
+  isActive: Joi.boolean().optional()
+}).min(1);
