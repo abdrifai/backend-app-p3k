@@ -21,7 +21,10 @@ function formatUser(user) {
   return {
     ...user,
     roles,
-    role: roles.join(',')
+    role: roles.join(','),
+    nik: user.pejabatPenandatangan?.nik || null,
+    jabatanPejabat: user.pejabatPenandatangan?.jabatan || null,
+    nipPejabat: user.pejabatPenandatangan?.nip || null
   };
 }
 
@@ -74,7 +77,10 @@ class UserService {
         email: data.email,
         namaLengkap: data.namaLengkap || '',
         role: roleString,
-        password: hashedPassword
+        password: hashedPassword,
+        nik: data.nik || null,
+        jabatanPejabat: data.jabatanPejabat || null,
+        nipPejabat: data.nipPejabat || null
       };
       const created = await userRepository.create(createPayload);
       return formatUser(created);
@@ -302,6 +308,10 @@ class UserService {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(payload.password, salt);
     }
+
+    if (payload.nik !== undefined) updateData.nik = payload.nik;
+    if (payload.jabatanPejabat !== undefined) updateData.jabatanPejabat = payload.jabatanPejabat;
+    if (payload.nipPejabat !== undefined) updateData.nipPejabat = payload.nipPejabat;
 
     try {
       const updated = await userRepository.update(id, updateData);

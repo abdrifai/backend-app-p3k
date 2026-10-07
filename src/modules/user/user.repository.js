@@ -2,13 +2,15 @@ import prisma from '../../config/database.js';
 
 class UserRepository {
   async create(data) {
+    const { nik, jabatanPejabat, nipPejabat, ...userData } = data;
+
     // If any soft-deleted user retains this username or email, suffix their unique fields to release database constraints
     const softDeletedConflicts = await prisma.user.findMany({
       where: {
         isDeleted: true,
         OR: [
-          ...(data.username ? [{ username: data.username }] : []),
-          ...(data.email ? [{ email: data.email }] : [])
+          ...(userData.username ? [{ username: userData.username }] : []),
+          ...(userData.email ? [{ email: userData.email }] : [])
         ]
       }
     });
@@ -19,15 +21,15 @@ class UserRepository {
         await prisma.user.update({
           where: { id: sUser.id },
           data: {
-            username: sUser.username === data.username ? `${sUser.username}_del_${timestamp}` : sUser.username,
-            email: sUser.email === data.email ? `${sUser.email}_del_${timestamp}` : sUser.email
+            username: sUser.username === userData.username ? `${sUser.username}_del_${timestamp}` : sUser.username,
+            email: sUser.email === userData.email ? `${sUser.email}_del_${timestamp}` : sUser.email
           }
         });
       }
     }
 
-    return await prisma.user.create({
-      data,
+    const createdUser = await prisma.user.create({
+      data: userData,
       select: {
         id: true,
         username: true,
@@ -39,6 +41,41 @@ class UserRepository {
         updatedAt: true
       }
     });
+
+    // Jika role mengandung pejabat_ttd dan NIK disertakan, sinkronkan ke tabel pejabat_penandatangan
+    const roles = String(createdUser.role || '').toLowerCase().split(',').map(r => r.trim());
+    if (roles.includes('pejabat_ttd') && nik && nik.trim() !== '') {
+      const jabatan = jabatanPejabat || 'KEPALA_BKPSDM';
+      const jenis = jabatan === 'BUPATI' ? 'TTE' : 'PARAF';
+      const urutan = jabatan === 'KEPALA_BKPSDM' ? 1 : (jabatan === 'SEKDA' ? 2 : 4);
+
+      await prisma.pejabatPenandatangan.upsert({
+        where: { userId: createdUser.id },
+        update: {
+          nik: nik.trim(),
+          jabatan,
+          nama: createdUser.namaLengkap || createdUser.username,
+          nip: nipPejabat ? nipPejabat.trim() : null,
+          jenis,
+          urutan,
+          isActive: true,
+          isDeleted: false
+        },
+        create: {
+          userId: createdUser.id,
+          nik: nik.trim(),
+          jabatan,
+          nama: createdUser.namaLengkap || createdUser.username,
+          nip: nipPejabat ? nipPejabat.trim() : null,
+          jenis,
+          urutan,
+          isActive: true,
+          isDeleted: false
+        }
+      });
+    }
+
+    return await this.findById(createdUser.id);
   }
 
   async findByEmail(email) {
@@ -64,7 +101,19 @@ class UserRepository {
         role: true,
         foto: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        pejabatPenandatangan: {
+          select: {
+            id: true,
+            jabatan: true,
+            nama: true,
+            nip: true,
+            nik: true,
+            jenis: true,
+            urutan: true,
+            isActive: true
+          }
+        }
       }
     });
   }
@@ -99,7 +148,19 @@ class UserRepository {
           foto: true,
           isDeleted: true,
           createdAt: true,
-          updatedAt: true
+          updatedAt: true,
+          pejabatPenandatangan: {
+            select: {
+              id: true,
+              jabatan: true,
+              nama: true,
+              nip: true,
+              nik: true,
+              jenis: true,
+              urutan: true,
+              isActive: true
+            }
+          }
         },
         orderBy: { createdAt: 'desc' }
       }),
@@ -110,15 +171,17 @@ class UserRepository {
   }
 
   async update(id, data) {
+    const { nik, jabatanPejabat, nipPejabat, ...userData } = data;
+
     // If email or username is being updated, check if any soft-deleted user retains them
-    if (data.username || data.email) {
+    if (userData.username || userData.email) {
       const softDeletedConflicts = await prisma.user.findMany({
         where: {
           isDeleted: true,
           id: { not: id },
           OR: [
-            ...(data.username ? [{ username: data.username }] : []),
-            ...(data.email ? [{ email: data.email }] : [])
+            ...(userData.username ? [{ username: userData.username }] : []),
+            ...(userData.email ? [{ email: userData.email }] : [])
           ]
         }
       });
@@ -128,16 +191,16 @@ class UserRepository {
         await prisma.user.update({
           where: { id: sUser.id },
           data: {
-            username: sUser.username === data.username ? `${sUser.username}_del_${timestamp}` : sUser.username,
-            email: sUser.email === data.email ? `${sUser.email}_del_${timestamp}` : sUser.email
+            username: sUser.username === userData.username ? `${sUser.username}_del_${timestamp}` : sUser.username,
+            email: sUser.email === userData.email ? `${sUser.email}_del_${timestamp}` : sUser.email
           }
         });
       }
     }
 
-    return await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id },
-      data,
+      data: userData,
       select: {
         id: true,
         username: true,
@@ -149,6 +212,42 @@ class UserRepository {
         updatedAt: true
       }
     });
+
+    const roles = String(updatedUser.role || '').toLowerCase().split(',').map(r => r.trim());
+    if (roles.includes('pejabat_ttd') && nik !== undefined) {
+      if (nik && nik.trim() !== '') {
+        const jabatan = jabatanPejabat || 'KEPALA_BKPSDM';
+        const jenis = jabatan === 'BUPATI' ? 'TTE' : 'PARAF';
+        const urutan = jabatan === 'KEPALA_BKPSDM' ? 1 : (jabatan === 'SEKDA' ? 2 : 4);
+
+        await prisma.pejabatPenandatangan.upsert({
+          where: { userId: updatedUser.id },
+          update: {
+            nik: nik.trim(),
+            jabatan,
+            nama: updatedUser.namaLengkap || updatedUser.username,
+            nip: nipPejabat !== undefined ? (nipPejabat ? nipPejabat.trim() : null) : undefined,
+            jenis,
+            urutan,
+            isActive: true,
+            isDeleted: false
+          },
+          create: {
+            userId: updatedUser.id,
+            nik: nik.trim(),
+            jabatan,
+            nama: updatedUser.namaLengkap || updatedUser.username,
+            nip: nipPejabat ? nipPejabat.trim() : null,
+            jenis,
+            urutan,
+            isActive: true,
+            isDeleted: false
+          }
+        });
+      }
+    }
+
+    return await this.findById(updatedUser.id);
   }
 
   async softDelete(id) {

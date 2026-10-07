@@ -6,7 +6,12 @@ export const createUserSchema = Joi.object({
   password: Joi.string().min(6).required(),
   namaLengkap: Joi.string().max(150).allow('', null).default(''),
   role: Joi.string().allow('', null),
-  roles: Joi.array().items(Joi.string().trim()).allow(null)
+  roles: Joi.array().items(Joi.string().trim()).allow(null),
+  nik: Joi.string().pattern(/^\d{16}$/).allow('', null).messages({
+    'string.pattern.base': 'NIK pejabat harus terdiri dari 16 digit angka'
+  }),
+  jabatanPejabat: Joi.string().valid('KEPALA_BKPSDM', 'SEKDA', 'BUPATI').allow('', null),
+  nipPejabat: Joi.string().max(30).allow('', null)
 });
 
 export const loginUserSchema = Joi.object({
@@ -19,7 +24,12 @@ export const updateUserSchema = Joi.object({
   email: Joi.string().email().allow('', null),
   password: Joi.string().min(6).allow('', null),
   role: Joi.string().allow('', null),
-  roles: Joi.array().items(Joi.string().trim()).allow(null)
+  roles: Joi.array().items(Joi.string().trim()).allow(null),
+  nik: Joi.string().pattern(/^\d{16}$/).allow('', null).messages({
+    'string.pattern.base': 'NIK pejabat harus terdiri dari 16 digit angka'
+  }),
+  jabatanPejabat: Joi.string().valid('KEPALA_BKPSDM', 'SEKDA', 'BUPATI').allow('', null),
+  nipPejabat: Joi.string().max(30).allow('', null)
 });
 
 export const updateProfileSchema = Joi.object({
