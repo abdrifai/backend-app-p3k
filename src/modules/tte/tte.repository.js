@@ -520,5 +520,44 @@ export const tteRepository = {
 
       return updated;
     });
+  },
+
+  async applyResubmitTte({ usulanId, targetStatus, userId, catatan, ipAddress }) {
+    return prisma.$transaction(async (tx) => {
+      await tx.logTandaTangan.create({
+        data: {
+          usulanId,
+          tahap: 'PENGAJUAN_ULANG',
+          jenis: 'PARAF',
+          userId,
+          nik: '-',
+          status: 'SUKSES',
+          pesan: catatan
+            ? `Pengajuan ulang dokumen oleh operator: ${catatan}`
+            : 'Dokumen diajukan ulang ke antrean penandatangan setelah perbaikan',
+          ipAddress
+        }
+      });
+
+      const updated = await tx.usulanPerpanjangan.update({
+        where: { id: usulanId },
+        data: {
+          statusTte: targetStatus,
+          catatanTte: null
+        },
+        include: {
+          dataP3k: true,
+          templateKontrak: true,
+          logTandaTangan: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              user: { select: { namaLengkap: true, role: true } }
+            }
+          }
+        }
+      });
+
+      return updated;
+    });
   }
 };

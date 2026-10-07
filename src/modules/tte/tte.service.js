@@ -352,6 +352,71 @@ export const tteService = {
     return result;
   },
 
+  async resubmitTte(userId, usulanId, { targetStatus, catatan } = {}, ipAddress) {
+    const usulan = await tteRepository.findUsulanById(usulanId);
+    if (!usulan || usulan.isDeleted) {
+      throw httpError('Dokumen perpanjangan kontrak tidak ditemukan', 404);
+    }
+
+    if (usulan.statusTte !== STATUS_TTE.DITOLAK_PENANDATANGAN) {
+      throw httpError(
+        'Hanya dokumen yang berstatus DITOLAK_PENANDATANGAN yang dapat diajukan ulang ke penandatangan',
+        400
+      );
+    }
+
+    // Tentukan default targetStatus jika tidak ditentukan
+    let resolvedTargetStatus = targetStatus;
+    if (!resolvedTargetStatus) {
+      const lastRejectLog = (usulan.logTandaTangan || [])
+        .slice()
+        .reverse()
+        .find((l) => l.status === 'DITOLAK');
+
+      if (lastRejectLog && lastRejectLog.tahap) {
+        if (lastRejectLog.tahap.includes('SEKDA')) {
+          resolvedTargetStatus = STATUS_TTE.MENUNGGU_PARAF_SEKDA;
+        } else if (lastRejectLog.tahap.includes('BUPATI')) {
+          resolvedTargetStatus = STATUS_TTE.MENUNGGU_TTE_BUPATI;
+        } else {
+          resolvedTargetStatus = STATUS_TTE.MENUNGGU_PARAF_KABAN;
+        }
+      } else {
+        resolvedTargetStatus = STATUS_TTE.MENUNGGU_PARAF_KABAN;
+      }
+    }
+
+    const result = await tteRepository.applyResubmitTte({
+      usulanId,
+      targetStatus: resolvedTargetStatus,
+      userId,
+      catatan,
+      ipAddress
+    });
+
+    activityLogService.logActivity(
+      userId,
+      'RESUBMIT_TTE',
+      'UsulanPerpanjangan',
+      usulan.id,
+      {
+        nomorKontrak: usulan.nomorKontrak,
+        targetStatus: resolvedTargetStatus,
+        catatan
+      }
+    );
+
+    // Kirim notifikasi jika email diaktifkan
+    tteNotifikasiService
+      .kirimNotifikasiTahapBerikutnya(resolvedTargetStatus, {
+        ...result,
+        nomorKontrak: usulan.nomorKontrak
+      })
+      .catch(() => {});
+
+    return result;
+  },
+
   // CRUD Pejabat
   async listPejabat() {
     return tteRepository.listPejabat();

@@ -1,5 +1,11 @@
 import { asyncHandler } from '../../middlewares/error.middleware.js';
-import { signPassphraseSchema, tolakTteSchema, pejabatPenandatanganSchema, pejabatPenandatanganUpdateSchema } from './tte.validation.js';
+import {
+  signPassphraseSchema,
+  tolakTteSchema,
+  pejabatPenandatanganSchema,
+  pejabatPenandatanganUpdateSchema,
+  resubmitTteSchema
+} from './tte.validation.js';
 import { tteService } from './tte.service.js';
 
 // Controller Pegawai
@@ -160,6 +166,29 @@ export const tolakPejabat = asyncHandler(async (req, res) => {
     success: true,
     data: result,
     message: 'Penolakan tanda tangan berhasil dicatat'
+  });
+});
+
+export const resubmitTte = asyncHandler(async (req, res) => {
+  const { error, value } = resubmitTteSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details.map(d => d.message).join(', ')
+    });
+  }
+
+  const result = await tteService.resubmitTte(
+    req.user.id,
+    req.params.usulanId,
+    value,
+    req.ip
+  );
+
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: 'Dokumen berhasil diajukan ulang ke antrean penandatangan'
   });
 });
 

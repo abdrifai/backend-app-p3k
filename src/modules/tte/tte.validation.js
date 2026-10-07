@@ -43,3 +43,13 @@ export const pejabatPenandatanganUpdateSchema = Joi.object({
   urutan: Joi.number().integer().min(1).optional(),
   isActive: Joi.boolean().optional()
 }).min(1);
+
+export const resubmitTteSchema = Joi.object({
+  targetStatus: Joi.string().valid(
+    'MENUNGGU_PARAF_KABAN',
+    'MENUNGGU_PARAF_SEKDA',
+    'MENUNGGU_TTE_PEGAWAI',
+    'MENUNGGU_TTE_BUPATI'
+  ).optional(),
+  catatan: Joi.string().allow('', null).max(1000).optional()
+});

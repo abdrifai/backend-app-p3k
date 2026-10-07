@@ -7,7 +7,8 @@ import {
   getMonitoringTteStats,
   regeneratePdf,
   signPejabat,
-  tolakPejabat
+  tolakPejabat,
+  resubmitTte
 } from './tte.controller.js';
 import { authenticate, authorize, denyRole } from '../../middlewares/auth.middleware.js';
 
@@ -246,5 +247,45 @@ router.post('/:usulanId/sign', pejabatGuard, signPejabat);
  *         description: Kesalahan server
  */
 router.post('/:usulanId/tolak', pejabatGuard, tolakPejabat);
+
+/**
+ * @swagger
+ * /api/v1/tte/{usulanId}/resubmit:
+ *   post:
+ *     summary: Ajukan kembali dokumen yang ditolak ke antrean penandatangan
+ *     tags: [Pejabat TTE]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: usulanId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               targetStatus:
+ *                 type: string
+ *                 enum: [MENUNGGU_PARAF_KABAN, MENUNGGU_PARAF_SEKDA, MENUNGGU_TTE_PEGAWAI, MENUNGGU_TTE_BUPATI]
+ *               catatan:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Dokumen berhasil diajukan ulang ke antrean
+ *       400:
+ *         description: Dokumen tidak dalam status DITOLAK_PENANDATANGAN
+ *       401:
+ *         description: Tidak terautentikasi
+ *       404:
+ *         description: Dokumen tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.post('/:usulanId/resubmit', monitoringGuard, resubmitTte);
 
 export default router;
