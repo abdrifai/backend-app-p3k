@@ -105,9 +105,10 @@ export class DataP3kController {
     const golongan = req.query.golongan || '';
     const jenisJabatan = req.query.jenisJabatan || '';
     const jabatanNama = req.query.jabatanNama || '';
+    const jenisKelamin = req.query.jenisKelamin || '';
     const kategori = req.query.kategori || 'ALL';
 
-    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, kategori });
+    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kategori });
 
     res.status(200).json({
       success: true,

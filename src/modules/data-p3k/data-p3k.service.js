@@ -15,12 +15,12 @@ export class DataP3kService {
     }
   }
 
-  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '', jabatanNama = '', kategori = 'ALL' }) {
+  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '', jabatanNama = '', jenisKelamin = '', kategori = 'ALL' }) {
     const skip = (page - 1) * limit;
 
     if (kategori === 'PARUH_WAKTU') {
-      const where = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
-      const whereActive = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
+      const where = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
+      const whereActive = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
       const [data, totalCount, totalActive] = await Promise.all([
         prisma.dataP3kParuhWaktu.findMany({
           where,
@@ -47,9 +47,9 @@ export class DataP3kService {
 
     if (kategori === 'PENUH_WAKTU') {
       const [data, totalCount, totalActive] = await Promise.all([
-        DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
-        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
-        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama })
+        DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }),
+        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }),
+        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin })
       ]);
 
       return {
@@ -66,8 +66,8 @@ export class DataP3kService {
 
     // Default: If statusPensiun === 'AKTIF' and kategori === 'ALL', combine both
     if (statusPensiun === 'AKTIF') {
-      const whereP3k = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
-      const whereParuh = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
+      const whereP3k = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
+      const whereParuh = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
 
       const [totalP3k, totalParuh] = await Promise.all([
         prisma.dataP3k.count({ where: whereP3k }),
@@ -108,9 +108,9 @@ export class DataP3kService {
     }
 
     const [data, totalCount, totalActive] = await Promise.all([
-      DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
-      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }),
-      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama })
+      DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }),
+      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }),
+      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin })
     ]);
 
     return {
@@ -174,9 +174,9 @@ export class DataP3kService {
       DataP3kRepository.getTotalCount({ statusPensiun: 'PENSIUN' }),
       prisma.dataP3kParuhWaktu.count({ where: { isDeleted: false, statusPensiun: 'AKTIF' } }),
       DataP3kRepository.getGenderCount(activeFilter),
-      DataP3kRepository.groupByField('tingkatPendidikanNama', activeFilter),
+      DataP3kRepository.groupByFieldWithGender('tingkatPendidikanNama', activeFilter),
       DataP3kRepository.groupByUnorInduk(activeFilter),
-      DataP3kRepository.groupByField('golAkhirNama', activeFilter),
+      DataP3kRepository.groupByFieldWithGender('golAkhirNama', activeFilter),
       DataP3kRepository.getTmtPengangkatanStats(activeFilter),
       DataP3kRepository.groupByField('jenisJabatanNama', activeFilter)
     ]);

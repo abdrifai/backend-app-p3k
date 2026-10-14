@@ -49,7 +49,7 @@ export class DataP3kRepository {
     return totalInserted;
   }
 
-  static _buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }) {
+  static _buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }) {
     let where = { AND: [{ isDeleted: false }] };
 
     if (search) {
@@ -107,6 +107,19 @@ export class DataP3kRepository {
       where.AND.push({ jabatanNama: jabatanNama });
     }
 
+    if (jenisKelamin) {
+      const jk = jenisKelamin.toUpperCase();
+      if (jk === 'L' || jk === 'M' || jk.includes('LAKI')) {
+        where.AND.push({
+          OR: [{ jenisKelamin: 'M' }, { jenisKelamin: 'L' }, { jenisKelamin: { contains: 'LAKI' } }]
+        });
+      } else if (jk === 'P' || jk === 'F' || jk.includes('PEREMPUAN')) {
+        where.AND.push({
+          OR: [{ jenisKelamin: 'F' }, { jenisKelamin: 'P' }, { jenisKelamin: { contains: 'PEREMPUAN' } }]
+        });
+      }
+    }
+
     if (where.AND.length === 0) {
       return {};
     }
@@ -114,8 +127,8 @@ export class DataP3kRepository {
     return where;
   }
 
-  static async findAll({ skip, take, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama }) {
-    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
+  static async findAll({ skip, take, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }) {
+    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
 
     return prisma.dataP3k.findMany({
       where,
@@ -132,8 +145,8 @@ export class DataP3kRepository {
     });
   }
 
-  static async count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama } = {}) {
-    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama });
+  static async count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin } = {}) {
+    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
     return prisma.dataP3k.count({ where });
   }
 
@@ -180,6 +193,47 @@ export class DataP3kRepository {
       label: r[field] || 'Tidak Diketahui',
       count: r._count[field]
     }));
+  }
+
+  static async groupByFieldWithGender(field, additionalWhere = {}) {
+    const results = await prisma.dataP3k.groupBy({
+      by: [field, 'jenisKelamin'],
+      where: { isDeleted: false, ...additionalWhere },
+      _count: { id: true }
+    });
+
+    const map = new Map();
+
+    for (const r of results) {
+      const label = r[field] || 'Tidak Diketahui';
+      if (!map.has(label)) {
+        map.set(label, { label, count: 0, laki: 0, perempuan: 0 });
+      }
+      const entry = map.get(label);
+      const count = r._count.id;
+      entry.count += count;
+
+      const val = (r.jenisKelamin || '').toUpperCase();
+      if (val === 'M' || val === 'L' || val === '1' || val.includes('LAKI')) {
+        entry.laki += count;
+      } else if (val === 'F' || val === 'P' || val === '2' || val.includes('PEREMPUAN')) {
+        entry.perempuan += count;
+      }
+    }
+
+    const list = Array.from(map.values()).map((item) => {
+      const total = item.count;
+      const persenLaki = total > 0 ? Number(((item.laki / total) * 100).toFixed(1)) : 0;
+      const persenPerempuan = total > 0 ? Number(((item.perempuan / total) * 100).toFixed(1)) : 0;
+      return {
+        ...item,
+        persenLaki,
+        persenPerempuan
+      };
+    });
+
+    list.sort((a, b) => b.count - a.count);
+    return list;
   }
 
   static async groupByUnorInduk(additionalWhere = {}) {
