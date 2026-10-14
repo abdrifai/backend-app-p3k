@@ -15,6 +15,8 @@ const getLibreOfficeCommand = () => {
   const potentialPaths = [
     'soffice',
     'libreoffice',
+    '/opt/homebrew/bin/soffice',
+    '/opt/homebrew/bin/libreoffice',
     '/Applications/LibreOffice.app/Contents/MacOS/soffice',
     '/usr/bin/soffice',
     '/usr/bin/libreoffice',

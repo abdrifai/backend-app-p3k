@@ -33,6 +33,7 @@ import { verifikasiRoutes } from './modules/verifikasi-perbaikan/verifikasi.rout
 import ttePortalRoutes from './modules/tte/tte-portal.routes.js';
 import ttePejabatRoutes from './modules/tte/tte-pejabat.routes.js';
 import pejabatAdminRoutes from './modules/tte/pejabat-admin.routes.js';
+import tteVerifikasiRoutes from './modules/tte/tte-verifikasi.routes.js';
 import { authenticate, denyRole } from './middlewares/auth.middleware.js';
 import path from 'path';
 
@@ -93,6 +94,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/portal/auth', portalAuthRoutes);
+app.use('/api/v1/portal/verifikasi', tteVerifikasiRoutes);
 app.use('/api/v1/portal/perbaikan', portalPerbaikanRoutes);
 app.use('/api/v1/portal/tte', ttePortalRoutes);
 app.use('/api/v1/portal', portalRoutes);

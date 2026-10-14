@@ -60,3 +60,16 @@ export const updateSrikandiStatusSchema = Joi.object({
   keterangan: Joi.string().allow('', null).optional()
 });
 
+export const statistikPerpanjanganQuerySchema = Joi.object({
+  kategori: Joi.string().valid('ALL', 'PENUH_WAKTU', 'PARUH_WAKTU').default('ALL').optional()
+});
+
+export const detailStatistikPerpanjanganQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(500).default(50),
+  search: Joi.string().allow('', null).optional(),
+  tmtCpns: Joi.string().allow('', null).optional(),
+  status: Joi.string().valid('ALL', 'AKTIF', 'PENSIUN', 'TIDAK_DIPERPANJANG').default('ALL').optional(),
+  kategori: Joi.string().valid('ALL', 'PENUH_WAKTU', 'PARUH_WAKTU').default('ALL').optional()
+});
+

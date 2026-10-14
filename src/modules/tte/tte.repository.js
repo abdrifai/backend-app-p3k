@@ -1,6 +1,61 @@
 import prisma from '../../config/database.js';
 
 export const tteRepository = {
+  async findRiwayatPegawai(dataP3kId) {
+    return prisma.usulanPerpanjangan.findMany({
+      where: {
+        dataP3kId,
+        isDeleted: false,
+        statusTte: {
+          in: ['MENUNGGU_TTE_BUPATI', 'TTE_SELESAI', 'DITOLAK_PENANDATANGAN']
+        }
+      },
+      select: {
+        id: true,
+        nomorKontrak: true,
+        kontrakKe: true,
+        tanggalMulai: true,
+        tanggalSelesai: true,
+        statusTte: true,
+        catatanTte: true,
+        pdfDraftUrl: true,
+        pdfSignedUrl: true,
+        finalFileUrl: true,
+        createdAt: true,
+        updatedAt: true,
+        dataP3k: {
+          select: {
+            nama: true,
+            nipBaru: true,
+            nik: true,
+            jabatanNama: true,
+            unorNama: true,
+            golAkhirNama: true
+          }
+        },
+        logTandaTangan: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            tahap: true,
+            jenis: true,
+            status: true,
+            pesan: true,
+            idDokumenBsre: true,
+            createdAt: true,
+            user: {
+              select: {
+                namaLengkap: true,
+                role: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+  },
+
   async findAntrianPegawai(dataP3kId) {
     return prisma.usulanPerpanjangan.findMany({
       where: {
@@ -132,9 +187,75 @@ export const tteRepository = {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, parseInt(limit, 10) || 10);
     const skip = (pageNum - 1) * limitNum;
+
+    // Normalisasi parameter status
+    let normalizedStatus = status ? status.trim().toUpperCase() : '';
+    if (normalizedStatus === 'SUCCESS') normalizedStatus = 'SUKSES';
+    if (normalizedStatus === 'FAILED') normalizedStatus = 'DITOLAK';
+
+    // Jika filter SELESAI / TTE_SELESAI: ambil daftar kontrak yang telah rampung final lingkup Pemkab
+    if (normalizedStatus === 'SELESAI' || normalizedStatus === 'TTE_SELESAI') {
+      const whereUsulan = {
+        isDeleted: false,
+        statusTte: 'TTE_SELESAI'
+      };
+
+      if (search && search.trim()) {
+        const q = search.trim();
+        whereUsulan.OR = [
+          { nomorKontrak: { contains: q } },
+          { dataP3k: { nama: { contains: q } } },
+          { dataP3k: { nipBaru: { contains: q } } },
+          { dataP3k: { unorNama: { contains: q } } }
+        ];
+      }
+
+      const [total, items] = await Promise.all([
+        prisma.usulanPerpanjangan.count({ where: whereUsulan }),
+        prisma.usulanPerpanjangan.findMany({
+          where: whereUsulan,
+          skip,
+          take: limitNum,
+          orderBy: { updatedAt: 'desc' },
+          include: {
+            dataP3k: {
+              select: {
+                nama: true,
+                nipBaru: true,
+                jabatanNama: true,
+                unorNama: true
+              }
+            }
+          }
+        })
+      ]);
+
+      const mappedItems = items.map((u) => ({
+        id: u.id,
+        usulanId: u.id,
+        tahap: 'TTE_BUPATI',
+        jenis: 'TTE',
+        status: 'SUKSES',
+        pesan: 'Dokumen kontrak telah selesai dan sah ditandatangani final oleh Bupati',
+        signedFileUrl: u.pdfSignedUrl || u.finalFileUrl,
+        createdAt: u.updatedAt,
+        usulan: u
+      }));
+
+      return {
+        data: mappedItems,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum)
+        }
+      };
+    }
+
     const where = {
       userId,
-      ...(status ? { status } : {})
+      ...(normalizedStatus ? { status: normalizedStatus } : {})
     };
 
     if (search && search.trim()) {
@@ -559,5 +680,69 @@ export const tteRepository = {
 
       return updated;
     });
+  },
+
+  async applyResetTte({ usulanId, userId, alasanPembatalan, ipAddress, newPdfDraftUrl }) {
+    return prisma.$transaction(async (tx) => {
+      // 1. Catat log pembatalan resmi untuk rekam jejak audit
+      await tx.logTandaTangan.create({
+        data: {
+          usulanId,
+          tahap: 'PEMBATALAN_KONTRAK',
+          jenis: 'REVOCATION',
+          userId,
+          nik: '-',
+          status: 'DIBATALKAN',
+          pesan: `Kontrak dibatalkan dan alur TTE di-reset: ${alasanPembatalan}`,
+          ipAddress
+        }
+      });
+
+      // 2. Ambil data usulan saat ini untuk perbaikan relasi riwayatKontrak
+      const usulan = await tx.usulanPerpanjangan.findUnique({
+        where: { id: usulanId },
+        select: { dataP3kId: true, nomorKontrak: true, kontrakKe: true }
+      });
+
+      // 3. Reset status usulan ke APPROVED dan statusTte ke awal (MENUNGGU_PARAF_KABAN)
+      const updated = await tx.usulanPerpanjangan.update({
+        where: { id: usulanId },
+        data: {
+          status: 'APPROVED',
+          statusTte: 'MENUNGGU_PARAF_KABAN',
+          pdfDraftUrl: newPdfDraftUrl,
+          pdfSignedUrl: null,
+          finalFileUrl: null,
+          tanggalTtd: null,
+          catatanTte: `Dibatalkan & diulang dari awal: ${alasanPembatalan}`
+        },
+        include: {
+          dataP3k: true,
+          templateKontrak: true,
+          logTandaTangan: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              user: { select: { namaLengkap: true, role: true } }
+            }
+          }
+        }
+      });
+
+      // 4. Jika ada RiwayatKontrak yang terlanjur terhubung dengan arsipKontrak TTE final, lepas hubungannya
+      if (usulan) {
+        await tx.riwayatKontrak.updateMany({
+          where: {
+            dataP3kId: usulan.dataP3kId,
+            ...(usulan.nomorKontrak ? { nomorKontrak: usulan.nomorKontrak } : {})
+          },
+          data: {
+            arsipKontrakId: null
+          }
+        });
+      }
+
+      return updated;
+    });
   }
 };
+

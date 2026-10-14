@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getAntrianPegawai,
+  getRiwayatPegawai,
   getPreviewPegawai,
   cekStatusSertifikatPegawai,
   signPegawai
@@ -32,6 +33,22 @@ router.use(authenticate, authorize('pegawai'), loadPegawai);
  *         description: Berhasil memuat antrian
  */
 router.get('/', getAntrianPegawai);
+
+/**
+ * @swagger
+ * /api/v1/portal/tte/riwayat:
+ *   get:
+ *     summary: Ambil riwayat kontrak yang telah ditandatangani pegawai untuk memantau proses TTE Bupati
+ *     tags: [Portal TTE Pegawai]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil memuat riwayat pengesahan kontrak
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/riwayat', getRiwayatPegawai);
 
 /**
  * @swagger

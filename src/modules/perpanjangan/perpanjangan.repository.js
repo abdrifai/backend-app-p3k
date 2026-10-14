@@ -494,6 +494,439 @@ if (!isNaN(seqNum) && seqNum > maxSeq) {
       _count: { id: true }
     });
   }
+
+  /**
+   * Mengambil statistik rekapitulasi perpanjangan PK per angkatan (TMT)
+   * dan jumlah pegawai yang tidak diperpanjang (pemberhentian / pensiun),
+   * terpisah antara PPPK Penuh Waktu dan PPPK Paruh Waktu.
+   */
+  static async getStatistikPerpanjanganPk({ kategori = 'ALL' } = {}) {
+    const monthNames = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+
+    const [
+      p3kGroups,
+      paruhGroups,
+      p3kPensiunGroups,
+      paruhPensiunGroups,
+      refJenisPensiunList
+    ] = await Promise.all([
+      // 1. P3K Penuh Waktu groups
+      prisma.dataP3k.groupBy({
+        by: ['tmtCpns', 'statusPensiun'],
+        where: { isDeleted: false },
+        _count: { id: true }
+      }),
+      // 2. P3K Paruh Waktu groups
+      prisma.dataP3kParuhWaktu.groupBy({
+        by: ['tmtCpns', 'statusPensiun'],
+        where: { isDeleted: false },
+        _count: { id: true }
+      }),
+      // 3. Jenis pensiun Penuh Waktu
+      prisma.dataP3k.groupBy({
+        by: ['jenisPensiunId'],
+        where: { isDeleted: false, statusPensiun: { not: 'AKTIF' } },
+        _count: { id: true }
+      }),
+      // 4. Jenis pensiun Paruh Waktu
+      prisma.dataP3kParuhWaktu.groupBy({
+        by: ['jenisPensiunId'],
+        where: { isDeleted: false, statusPensiun: { not: 'AKTIF' } },
+        _count: { id: true }
+      }),
+      // 5. Ref Jenis Pensiun
+      prisma.refJenisPensiun.findMany({
+        where: { isDeleted: false },
+        select: { id: true, kode: true, nama: true }
+      })
+    ]);
+
+    const refJenisMap = {};
+    refJenisPensiunList.forEach(r => {
+      refJenisMap[r.id] = r.nama;
+    });
+
+    const processDataSet = (groups, pensiunGroups) => {
+      const angkatanMap = {};
+      let totalPegawai = 0;
+      let totalAktif = 0;
+      let totalTidakDiperpanjang = 0;
+
+      groups.forEach(item => {
+        const rawTmt = item.tmtCpns;
+        const count = item._count.id;
+        const isTidakDiperpanjang = item.statusPensiun && item.statusPensiun !== 'AKTIF';
+
+        totalPegawai += count;
+        if (isTidakDiperpanjang) {
+          totalTidakDiperpanjang += count;
+        } else {
+          totalAktif += count;
+        }
+
+        let sortKey = 99999999;
+        let label = 'Tanpa TMT';
+        let key = 'NO_TMT';
+
+        if (rawTmt && rawTmt.trim()) {
+          const parts = rawTmt.trim().split('-');
+          let dd = '01', mm = '01', yyyy = '1970';
+          if (parts.length === 3) {
+            if (parts[0].length === 4) {
+              yyyy = parts[0];
+              mm = parts[1];
+              dd = parts[2];
+            } else {
+              dd = parts[0];
+              mm = parts[1];
+              yyyy = parts[2];
+            }
+            const mIdx = parseInt(mm, 10) - 1;
+            const mName = (mIdx >= 0 && mIdx < 12) ? monthNames[mIdx] : mm;
+            label = `TMT ${dd} ${mName} ${yyyy}`;
+            sortKey = parseInt(`${yyyy}${String(mm).padStart(2, '0')}${String(dd).padStart(2, '0')}`, 10);
+            key = `${dd}-${mm}-${yyyy}`;
+          }
+        }
+
+        if (!angkatanMap[key]) {
+          angkatanMap[key] = {
+            key,
+            label,
+            sortKey,
+            total: 0,
+            aktif: 0,
+            tidakDiperpanjang: 0,
+            rawKeys: []
+          };
+        }
+
+        if (rawTmt && !angkatanMap[key].rawKeys.includes(rawTmt)) {
+          angkatanMap[key].rawKeys.push(rawTmt);
+        }
+        angkatanMap[key].total += count;
+        if (isTidakDiperpanjang) {
+          angkatanMap[key].tidakDiperpanjang += count;
+        } else {
+          angkatanMap[key].aktif += count;
+        }
+      });
+
+      const byAngkatan = Object.values(angkatanMap)
+        .sort((a, b) => a.sortKey - b.sortKey)
+        .map(item => {
+          const persentaseAktif = item.total > 0 ? Number(((item.aktif / item.total) * 100).toFixed(1)) : 0;
+          const persentaseTidakDiperpanjang = item.total > 0 ? Number(((item.tidakDiperpanjang / item.total) * 100).toFixed(1)) : 0;
+          return {
+            ...item,
+            persentaseAktif,
+            persentaseTidakDiperpanjang
+          };
+        });
+
+      const jenisPensiunMap = {};
+      pensiunGroups.forEach(item => {
+        const id = item.jenisPensiunId;
+        const count = item._count.id;
+        const nama = id && refJenisMap[id] ? refJenisMap[id] : 'Tanpa Keterangan / Lainnya';
+        if (!jenisPensiunMap[nama]) {
+          jenisPensiunMap[nama] = 0;
+        }
+        jenisPensiunMap[nama] += count;
+      });
+
+      const byJenisPemberhentian = Object.entries(jenisPensiunMap)
+        .map(([nama, count]) => ({
+          nama,
+          count,
+          percentage: totalTidakDiperpanjang > 0 ? Number(((count / totalTidakDiperpanjang) * 100).toFixed(1)) : 0
+        }))
+        .sort((a, b) => b.count - a.count);
+
+      const persentaseAktif = totalPegawai > 0 ? Number(((totalAktif / totalPegawai) * 100).toFixed(1)) : 0;
+      const persentaseTidakDiperpanjang = totalPegawai > 0 ? Number(((totalTidakDiperpanjang / totalPegawai) * 100).toFixed(1)) : 0;
+
+      return {
+        summary: {
+          totalPegawai,
+          totalAktif,
+          totalTidakDiperpanjang,
+          totalAngkatan: byAngkatan.length,
+          persentaseAktif,
+          persentaseTidakDiperpanjang
+        },
+        byAngkatan,
+        byJenisPemberhentian
+      };
+    };
+
+    const dataPenuhWaktu = processDataSet(p3kGroups, p3kPensiunGroups);
+    const dataParuhWaktu = processDataSet(paruhGroups, paruhPensiunGroups);
+    const dataGabungan = processDataSet([...p3kGroups, ...paruhGroups], [...p3kPensiunGroups, ...paruhPensiunGroups]);
+
+    let activeData = dataGabungan;
+    if (kategori === 'PENUH_WAKTU') {
+      activeData = dataPenuhWaktu;
+    } else if (kategori === 'PARUH_WAKTU') {
+      activeData = dataParuhWaktu;
+    }
+
+    return {
+      activeKategori: kategori,
+      summary: {
+        totalPegawai: activeData.summary.totalPegawai,
+        totalAktif: activeData.summary.totalAktif,
+        totalTidakDiperpanjang: activeData.summary.totalTidakDiperpanjang,
+        totalAngkatan: activeData.summary.totalAngkatan,
+        persentaseAktif: activeData.summary.persentaseAktif,
+        persentaseTidakDiperpanjang: activeData.summary.persentaseTidakDiperpanjang,
+        penuhWaktu: dataPenuhWaktu.summary,
+        paruhWaktu: dataParuhWaktu.summary,
+        gabungan: dataGabungan.summary
+      },
+      penuhWaktu: dataPenuhWaktu,
+      paruhWaktu: dataParuhWaktu,
+      byAngkatan: activeData.byAngkatan,
+      byJenisPemberhentian: activeData.byJenisPemberhentian
+    };
+  }
+
+  /**
+   * Mengambil daftar detail pegawai untuk statistik perpanjangan PK (paginated & searchable)
+   */
+  static async getDetailStatistikPegawai({ page = 1, limit = 50, search = '', tmtCpns = '', status = 'ALL', kategori = 'ALL' } = {}) {
+    const skip = (page - 1) * limit;
+
+    const buildWhere = () => {
+      const where = { isDeleted: false, AND: [] };
+
+      if (status === 'AKTIF') {
+        where.AND.push({ statusPensiun: 'AKTIF' });
+      } else if (status === 'PENSIUN' || status === 'TIDAK_DIPERPANJANG') {
+        where.AND.push({ statusPensiun: { not: 'AKTIF' } });
+      }
+
+      if (tmtCpns && tmtCpns !== 'ALL' && tmtCpns !== '') {
+        if (tmtCpns === 'NO_TMT') {
+          where.AND.push({
+            OR: [
+              { tmtCpns: null },
+              { tmtCpns: '' }
+            ]
+          });
+        } else {
+          const parts = tmtCpns.split('-');
+          const orList = [{ tmtCpns }];
+          if (parts.length === 3) {
+            if (parts[0].length === 4) {
+              orList.push({ tmtCpns: `${parts[2]}-${parts[1]}-${parts[0]}` });
+            } else {
+              orList.push({ tmtCpns: `${parts[2]}-${parts[1]}-${parts[0]}` });
+            }
+          }
+          where.AND.push({ OR: orList });
+        }
+      }
+
+      if (search && search.trim()) {
+        const s = search.trim();
+        where.AND.push({
+          OR: [
+            { nama: { contains: s } },
+            { nipBaru: { contains: s } },
+            { unorNama: { contains: s } },
+            { jabatanNama: { contains: s } }
+          ]
+        });
+      }
+
+      return where;
+    };
+
+    const selectFields = {
+      id: true,
+      nipBaru: true,
+      nama: true,
+      gelarDepan: true,
+      gelarBelakang: true,
+      jabatanNama: true,
+      unorNama: true,
+      tmtCpns: true,
+      statusPensiun: true,
+      jenisKelamin: true,
+      jenisPensiun: { select: { id: true, kode: true, nama: true } },
+      arsipSkPensiun: { select: { id: true, nomorSk: true, tanggalSk: true, fileUrl: true } }
+    };
+
+    if (kategori === 'PARUH_WAKTU') {
+      const where = buildWhere();
+      const [records, total] = await Promise.all([
+        prisma.dataP3kParuhWaktu.findMany({
+          where,
+          skip,
+          take: limit,
+          select: selectFields,
+          orderBy: { nama: 'asc' }
+        }),
+        prisma.dataP3kParuhWaktu.count({ where })
+      ]);
+
+      const formatted = records.map(r => ({
+        ...r,
+        kategoriPegawai: 'PARUH_WAKTU',
+        isTidakDiperpanjang: r.statusPensiun && r.statusPensiun !== 'AKTIF',
+        usulanPerpanjanganTerakhir: null
+      }));
+
+      return {
+        data: formatted,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1
+        }
+      };
+    }
+
+    if (kategori === 'PENUH_WAKTU') {
+      const where = buildWhere();
+      const [records, total] = await Promise.all([
+        prisma.dataP3k.findMany({
+          where,
+          skip,
+          take: limit,
+          select: {
+            ...selectFields,
+            usulanPerpanjangan: {
+              where: { isDeleted: false },
+              take: 1,
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true,
+                status: true,
+                statusSrikandi: true,
+                nomorKontrak: true,
+                tanggalMulai: true,
+                tanggalSelesai: true
+              }
+            }
+          },
+          orderBy: { nama: 'asc' }
+        }),
+        prisma.dataP3k.count({ where })
+      ]);
+
+      const formatted = records.map(r => {
+        const latestUsulan = r.usulanPerpanjangan && r.usulanPerpanjangan.length > 0 ? r.usulanPerpanjangan[0] : null;
+        return {
+          ...r,
+          kategoriPegawai: 'PENUH_WAKTU',
+          isTidakDiperpanjang: r.statusPensiun && r.statusPensiun !== 'AKTIF',
+          usulanPerpanjanganTerakhir: latestUsulan
+        };
+      });
+
+      return {
+        data: formatted,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1
+        }
+      };
+    }
+
+    // Kategori ALL: Paginate across both Penuh Waktu and Paruh Waktu
+    const where = buildWhere();
+    const [totalPenuh, totalParuh] = await Promise.all([
+      prisma.dataP3k.count({ where }),
+      prisma.dataP3kParuhWaktu.count({ where })
+    ]);
+    const total = totalPenuh + totalParuh;
+    const combinedRecords = [];
+
+    if (skip < totalPenuh) {
+      const p3kTake = Math.min(limit, totalPenuh - skip);
+      const p3kRecords = await prisma.dataP3k.findMany({
+        where,
+        skip,
+        take: p3kTake,
+        select: {
+          ...selectFields,
+          usulanPerpanjangan: {
+            where: { isDeleted: false },
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              status: true,
+              statusSrikandi: true,
+              nomorKontrak: true,
+              tanggalMulai: true,
+              tanggalSelesai: true
+            }
+          }
+        },
+        orderBy: { nama: 'asc' }
+      });
+
+      combinedRecords.push(...p3kRecords.map(r => ({
+        ...r,
+        kategoriPegawai: 'PENUH_WAKTU',
+        isTidakDiperpanjang: r.statusPensiun && r.statusPensiun !== 'AKTIF',
+        usulanPerpanjanganTerakhir: r.usulanPerpanjangan?.[0] || null
+      })));
+
+      if (combinedRecords.length < limit && totalParuh > 0) {
+        const paruhTake = limit - combinedRecords.length;
+        const paruhRecords = await prisma.dataP3kParuhWaktu.findMany({
+          where,
+          skip: 0,
+          take: paruhTake,
+          select: selectFields,
+          orderBy: { nama: 'asc' }
+        });
+
+        combinedRecords.push(...paruhRecords.map(r => ({
+          ...r,
+          kategoriPegawai: 'PARUH_WAKTU',
+          isTidakDiperpanjang: r.statusPensiun && r.statusPensiun !== 'AKTIF',
+          usulanPerpanjanganTerakhir: null
+        })));
+      }
+    } else {
+      const paruhSkip = skip - totalPenuh;
+      const paruhRecords = await prisma.dataP3kParuhWaktu.findMany({
+        where,
+        skip: paruhSkip,
+        take: limit,
+        select: selectFields,
+        orderBy: { nama: 'asc' }
+      });
+
+      combinedRecords.push(...paruhRecords.map(r => ({
+        ...r,
+        kategoriPegawai: 'PARUH_WAKTU',
+        isTidakDiperpanjang: r.statusPensiun && r.statusPensiun !== 'AKTIF',
+        usulanPerpanjanganTerakhir: null
+      })));
+    }
+
+    return {
+      data: combinedRecords,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1
+      }
+    };
+  }
 }
 
 

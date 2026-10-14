@@ -53,3 +53,13 @@ export const resubmitTteSchema = Joi.object({
   ).optional(),
   catatan: Joi.string().allow('', null).max(1000).optional()
 });
+
+export const resetTteSchema = Joi.object({
+  alasanPembatalan: Joi.string().trim().min(5).max(1000).required().messages({
+    'string.empty': 'Alasan pembatalan dan reset kontrak wajib diisi',
+    'string.min': 'Alasan pembatalan minimal 5 karakter',
+    'string.max': 'Alasan pembatalan maksimal 1000 karakter',
+    'any.required': 'Alasan pembatalan dan reset kontrak wajib diisi'
+  })
+});
+

@@ -192,6 +192,15 @@ export const MENU_CATALOG = [
     order: 5.1
   },
   {
+    key: 'laporan-statistik-perpanjangan',
+    label: 'Statistik Perpanjangan PK',
+    path: '/laporan/statistik-perpanjangan',
+    icon: 'ri-pie-chart-line',
+    parentKey: 'laporan',
+    group: 'Laporan & Rekapitulasi',
+    order: 5.15
+  },
+  {
     key: 'laporan-unit-kerja',
     label: 'Laporan Per Unit Kerja',
     path: '/laporan/per-unit-kerja',
@@ -384,6 +393,7 @@ export const DEFAULT_PERMISSIONS = {
     'task-usulan-pk',
     'laporan',
     'laporan-perpanjangan',
+    'laporan-statistik-perpanjangan',
     'laporan-unit-kerja',
     'laporan-rekap-jabatan',
     'laporan-statistik-task'
@@ -394,6 +404,7 @@ export const DEFAULT_PERMISSIONS = {
     'profil-pegawai',
     'manajemen-pemberhentian',
     'laporan',
+    'laporan-statistik-perpanjangan',
     'laporan-estimasi-pensiun'
   ],
   verifikator: [

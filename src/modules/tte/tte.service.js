@@ -6,6 +6,7 @@ import { STATUS_TTE, TAHAP_TTE, JENIS_TTE, JABATAN_PEJABAT } from './bsre.consta
 import activityLogService from '../activity-log/activityLog.service.js';
 import tteNotifikasiService from './tte-notifikasi.service.js';
 import pdfService from './pdf.service.js';
+import tteStampService from './tte-stamp.service.js';
 import { PerpanjanganService } from '../perpanjangan/perpanjangan.service.js';
 
 /**
@@ -82,6 +83,71 @@ export const tteService = {
     return tteRepository.findAntrianPegawai(pegawai.id);
   },
 
+  async getRiwayatPegawai(pegawai) {
+    if (pegawai.jenis !== 'PENUH_WAKTU') {
+      return [];
+    }
+    const rawList = await tteRepository.findRiwayatPegawai(pegawai.id);
+
+    return rawList.map((u) => {
+      const logs = u.logTandaTangan || [];
+      const logKaban = logs.find((l) => l.tahap === 'PARAF_KABAN' && l.status === 'SUKSES');
+      const logSekda = logs.find((l) => l.tahap === 'PARAF_SEKDA' && l.status === 'SUKSES');
+      const logPegawai = logs.find((l) => l.tahap === 'TTE_PEGAWAI' && l.status === 'SUKSES');
+      const logBupati = logs.find((l) => l.tahap === 'TTE_BUPATI' && l.status === 'SUKSES');
+
+      const isBupatiSigned = u.statusTte === 'TTE_SELESAI';
+      const isWaitingBupati = u.statusTte === 'MENUNGGU_TTE_BUPATI';
+      const isDitolak = u.statusTte === 'DITOLAK_PENANDATANGAN';
+
+      const steps = [
+        {
+          key: 'PARAF_KABAN',
+          label: 'Paraf Kepala BKPSDM',
+          status: logKaban ? 'SELESAI' : 'MENUNGGU',
+          waktu: logKaban?.createdAt || null,
+          pejabat: logKaban?.user?.namaLengkap || 'Kepala BKPSDM'
+        },
+        {
+          key: 'PARAF_SEKDA',
+          label: 'Paraf Sekretaris Daerah',
+          status: logSekda ? 'SELESAI' : 'MENUNGGU',
+          waktu: logSekda?.createdAt || null,
+          pejabat: logSekda?.user?.namaLengkap || 'Sekretaris Daerah'
+        },
+        {
+          key: 'TTE_PEGAWAI',
+          label: 'TTE Pegawai PPPK',
+          status: logPegawai || ['MENUNGGU_TTE_BUPATI', 'TTE_SELESAI'].includes(u.statusTte) ? 'SELESAI' : 'MENUNGGU',
+          waktu: logPegawai?.createdAt || null,
+          pejabat: u.dataP3k?.nama || 'Pegawai PPPK'
+        },
+        {
+          key: 'TTE_BUPATI',
+          label: 'TTE Bupati Tojo Una-Una (Final)',
+          status: isBupatiSigned ? 'SELESAI' : isWaitingBupati ? 'PROSES' : isDitolak ? 'DITOLAK' : 'MENUNGGU',
+          waktu: logBupati?.createdAt || (isBupatiSigned ? u.updatedAt : null),
+          pejabat: logBupati?.user?.namaLengkap || 'Bupati Tojo Una-Una'
+        }
+      ];
+
+      return {
+        ...u,
+        isBupatiSigned,
+        isWaitingBupati,
+        isDitolak,
+        statusTteDeskripsi: isBupatiSigned
+          ? 'Kontrak Selesai & Sah Ditandatangani Bupati'
+          : isWaitingBupati
+          ? 'Menunggu Pengesahan TTE Bupati'
+          : isDitolak
+          ? 'Dokumen Dikembalikan / Perlu Revisi'
+          : u.statusTte,
+        steps
+      };
+    });
+  },
+
   async getPreviewDokumenPegawai(pegawai, usulanId) {
     const usulan = await tteRepository.findUsulanById(usulanId);
     if (!usulan || usulan.dataP3kId !== pegawai.id) {
@@ -130,7 +196,22 @@ export const tteService = {
       passphrase,
       draftPdfUrl: usulan.pdfSignedUrl || usulan.pdfDraftUrl || usulan.generatedFileUrl,
       jenis: JENIS_TTE.TTE,
-      tampilan: 'VISIBLE'
+      tampilan: 'VISIBLE',
+      usulan: {
+        ...usulan,
+        statusTte: STATUS_TTE.MENUNGGU_TTE_BUPATI,
+        logTandaTangan: [
+          ...(usulan.logTandaTangan || []),
+          {
+            tahap: TAHAP_TTE.TTE_PEGAWAI,
+            jenis: JENIS_TTE.TTE,
+            nik: signerNik,
+            status: 'SUKSES',
+            createdAt: new Date(),
+            user: { namaLengkap: pegawai.nama }
+          }
+        ]
+      }
     });
 
     const result = await tteRepository.applyTteTransaction({
@@ -262,6 +343,18 @@ export const tteService = {
     // 3. Konversi file .docx ke PDF
     const outPdfDir = path.join(process.cwd(), 'uploads', 'pdf-draft');
     const generatedPdfPath = await pdfService.convertDocxToPdf(docxPath, outPdfDir);
+
+    // Stempel visual TTE & Paraf sesuai progres usulan saat ini
+    try {
+      await tteStampService.stampContractPdf({
+        inputPdf: generatedPdfPath,
+        outputPdfPath: generatedPdfPath,
+        usulan
+      });
+    } catch (stampErr) {
+      console.warn('Peringatan: Gagal menyematkan stempel pada regeneratePdf:', stampErr.message);
+    }
+
     const pdfDraftUrl = `/uploads/pdf-draft/${path.basename(generatedPdfPath)}`;
 
     // 4. Update usulan di database
@@ -291,7 +384,22 @@ export const tteService = {
       passphrase,
       draftPdfUrl: usulan.pdfSignedUrl || usulan.pdfDraftUrl,
       jenis: pejabat.jenis,
-      tampilan: pejabat.jenis === JENIS_TTE.TTE ? 'VISIBLE' : 'PARAF'
+      tampilan: pejabat.jenis === JENIS_TTE.TTE ? 'VISIBLE' : 'PARAF',
+      usulan: {
+        ...usulan,
+        statusTte: statusBerikutnya,
+        logTandaTangan: [
+          ...(usulan.logTandaTangan || []),
+          {
+            tahap,
+            jenis: pejabat.jenis,
+            nik: pejabat.nik,
+            status: 'SUKSES',
+            createdAt: new Date(),
+            user: { namaLengkap: pejabat.nama }
+          }
+        ]
+      }
     });
 
     const result = await tteRepository.applyTteTransaction({
@@ -409,6 +517,100 @@ export const tteService = {
     // Kirim notifikasi jika email diaktifkan
     tteNotifikasiService
       .kirimNotifikasiTahapBerikutnya(resolvedTargetStatus, {
+        ...result,
+        nomorKontrak: usulan.nomorKontrak
+      })
+      .catch(() => {});
+
+    return result;
+  },
+
+  async resetContractTte(userId, usulanId, { alasanPembatalan }, ipAddress) {
+    const usulan = await tteRepository.findUsulanById(usulanId);
+    if (!usulan || usulan.isDeleted) {
+      throw httpError('Dokumen perpanjangan kontrak tidak ditemukan', 404);
+    }
+
+    if (!alasanPembatalan || !alasanPembatalan.trim()) {
+      throw httpError('Alasan pembatalan kontrak wajib diisi', 400);
+    }
+
+    // 1. Dapatkan berkas .docx dasar
+    let generatedFileUrl = usulan.generatedFileUrl;
+    let docxPath = null;
+    if (generatedFileUrl) {
+      const cleanRel = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
+      const fullPath = path.join(process.cwd(), cleanRel);
+      if (fs.existsSync(fullPath)) {
+        docxPath = cleanRel;
+      }
+    }
+
+    // Jika docx lama tidak ada, generate ulang dari template kontrak
+    if (!docxPath) {
+      if (!usulan.templateKontrak || !usulan.templateKontrak.fileUrl) {
+        const activeTemplate = await tteRepository.findActiveTemplate();
+        if (!activeTemplate || !activeTemplate.fileUrl) {
+          throw httpError('Template kontrak aktif tidak ditemukan untuk generate draf baru', 400);
+        }
+        await tteRepository.updateUsulan(usulanId, {
+          templateKontrakId: activeTemplate.id
+        });
+        usulan.templateKontrak = activeTemplate;
+        usulan.templateKontrakId = activeTemplate.id;
+      }
+      generatedFileUrl = await PerpanjanganService._generateDocument(usulan);
+      docxPath = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
+    }
+
+    // 2. Konversi file .docx ke PDF draf bersih baru
+    const outPdfDir = path.join(process.cwd(), 'uploads', 'pdf-draft');
+    const generatedPdfPath = await pdfService.convertDocxToPdf(docxPath, outPdfDir);
+
+    // 3. Stempel sebagai draf awal baru (semua pihak berstatus DRAFT / Menunggu)
+    const usulanResetDraft = {
+      ...usulan,
+      statusTte: STATUS_TTE.MENUNGGU_PARAF_KABAN,
+      logTandaTangan: [] // Kosongkan saat rendering stempel agar draf bersih
+    };
+
+    try {
+      await tteStampService.stampContractPdf({
+        inputPdf: generatedPdfPath,
+        outputPdfPath: generatedPdfPath,
+        usulan: usulanResetDraft
+      });
+    } catch (stampErr) {
+      console.warn('Peringatan: Gagal menyematkan stempel draf pada resetContractTte:', stampErr.message);
+    }
+
+    const newPdfDraftUrl = `/uploads/pdf-draft/${path.basename(generatedPdfPath)}`;
+
+    // 4. Terapkan reset di repository & transaksi database
+    const result = await tteRepository.applyResetTte({
+      usulanId,
+      userId,
+      alasanPembatalan: alasanPembatalan.trim(),
+      ipAddress,
+      newPdfDraftUrl
+    });
+
+    // 5. Catat log aktivitas admin
+    activityLogService.logActivity(
+      userId,
+      'RESET_TTE_KONTRAK',
+      'UsulanPerpanjangan',
+      usulan.id,
+      {
+        nomorKontrak: usulan.nomorKontrak,
+        alasanPembatalan: alasanPembatalan.trim(),
+        previousStatusTte: usulan.statusTte
+      }
+    );
+
+    // 6. Kirim notifikasi tahap pertama (Paraf Kaban)
+    tteNotifikasiService
+      .kirimNotifikasiTahapBerikutnya(STATUS_TTE.MENUNGGU_PARAF_KABAN, {
         ...result,
         nomorKontrak: usulan.nomorKontrak
       })

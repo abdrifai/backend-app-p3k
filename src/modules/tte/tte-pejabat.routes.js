@@ -8,7 +8,8 @@ import {
   regeneratePdf,
   signPejabat,
   tolakPejabat,
-  resubmitTte
+  resubmitTte,
+  resetContractTte
 } from './tte.controller.js';
 import { authenticate, authorize, denyRole } from '../../middlewares/auth.middleware.js';
 
@@ -287,5 +288,49 @@ router.post('/:usulanId/tolak', pejabatGuard, tolakPejabat);
  *         description: Kesalahan server
  */
 router.post('/:usulanId/resubmit', monitoringGuard, resubmitTte);
+
+/**
+ * @swagger
+ * /api/v1/tte/{usulanId}/reset:
+ *   post:
+ *     summary: Batalkan tanda tangan & reset dokumen kontrak kembali ke draft awal
+ *     description: Digunakan oleh admin/operator jika terdapat kesalahan pada dokumen kontrak yang sedang atau telah selesai ditandatangani. Mencatat log pembatalan resmi dan men-generate ulang PDF draft bersih.
+ *     tags: [Pejabat TTE]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: usulanId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID usulan perpanjangan kontrak
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - alasanPembatalan
+ *             properties:
+ *               alasanPembatalan:
+ *                 type: string
+ *                 example: Terdapat koreksi pada masa perpanjangan kontrak dan gaji pokok
+ *     responses:
+ *       200:
+ *         description: Dokumen kontrak berhasil dibatalkan dan alur TTE di-reset
+ *       400:
+ *         description: Data tidak valid atau dokumen belum pernah masuk alur TTE
+ *       401:
+ *         description: Tidak terautentikasi
+ *       403:
+ *         description: Akses ditolak (hanya admin/operator)
+ *       404:
+ *         description: Dokumen tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.post('/:usulanId/reset', monitoringGuard, resetContractTte);
 
 export default router;

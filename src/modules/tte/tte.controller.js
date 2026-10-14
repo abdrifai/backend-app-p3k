@@ -4,7 +4,8 @@ import {
   tolakTteSchema,
   pejabatPenandatanganSchema,
   pejabatPenandatanganUpdateSchema,
-  resubmitTteSchema
+  resubmitTteSchema,
+  resetTteSchema
 } from './tte.validation.js';
 import { tteService } from './tte.service.js';
 
@@ -15,6 +16,15 @@ export const getAntrianPegawai = asyncHandler(async (req, res) => {
     success: true,
     data,
     message: 'Antrian dokumen TTE pegawai berhasil diambil'
+  });
+});
+
+export const getRiwayatPegawai = asyncHandler(async (req, res) => {
+  const data = await tteService.getRiwayatPegawai(req.pegawai);
+  res.status(200).json({
+    success: true,
+    data,
+    message: 'Riwayat dan status pengesahan kontrak TTE pegawai berhasil diambil'
   });
 });
 
@@ -189,6 +199,29 @@ export const resubmitTte = asyncHandler(async (req, res) => {
     success: true,
     data: result,
     message: 'Dokumen berhasil diajukan ulang ke antrean penandatangan'
+  });
+});
+
+export const resetContractTte = asyncHandler(async (req, res) => {
+  const { error, value } = resetTteSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details.map(d => d.message).join(', ')
+    });
+  }
+
+  const result = await tteService.resetContractTte(
+    req.user.id,
+    req.params.usulanId,
+    value,
+    req.ip
+  );
+
+  res.status(200).json({
+    success: true,
+    data: result,
+    message: 'Dokumen kontrak berhasil dibatalkan dan alur penandatanganan di-reset ke tahap awal'
   });
 });
 

@@ -11,6 +11,7 @@ import TaskUsulanRepository from '../task-usulan/task-usulan.repository.js';
 import activityLogService from '../activity-log/activityLog.service.js';
 import pdfService from '../tte/pdf.service.js';
 import tteNotifikasiService from '../tte/tte-notifikasi.service.js';
+import tteStampService from '../tte/tte-stamp.service.js';
 import { STATUS_TTE } from '../tte/bsre.constants.js';
 
 export class PerpanjanganService {
@@ -195,6 +196,22 @@ export class PerpanjanganService {
         const outPdfDir = path.join(process.cwd(), 'uploads', 'pdf-draft');
         const relativeDocx = generatedFileUrl.startsWith('/') ? generatedFileUrl.slice(1) : generatedFileUrl;
         const generatedPdfPath = await pdfService.convertDocxToPdf(relativeDocx, outPdfDir);
+
+        // Stempel visual TTE Draft awal (QR Draft Bupati, QR Draft Pegawai, Paraf Kaban & Sekda menunggu)
+        try {
+          await tteStampService.stampContractPdf({
+            inputPdf: generatedPdfPath,
+            outputPdfPath: generatedPdfPath,
+            usulan: {
+              ...usulan,
+              statusTte: STATUS_TTE.MENUNGGU_PARAF_KABAN,
+              logTandaTangan: []
+            }
+          });
+        } catch (stampErr) {
+          console.warn('Peringatan: Gagal menyematkan stempel draft awal:', stampErr.message);
+        }
+
         pdfDraftUrl = `/uploads/pdf-draft/${path.basename(generatedPdfPath)}`;
       } catch (pdfErr) {
         // Jika gagal, tetap gunakan generatedFileUrl sebagai fallback agar tidak memblok alur
@@ -842,9 +859,9 @@ export class PerpanjanganService {
       keterangan: usulan.keterangan || '',
       tanggalHariIni: this._formatTanggal(new Date().toISOString().split('T')[0]),
       
-      // Bypass ttd_pengirim
-      ttd_pengirim1: '{ttd_pengirim1}',
-      ttd_pengirim2: '{ttd_pengirim2}'
+      // Ruang kosong untuk stempel visual QR Code TTE Pihak Kesatu & Kedua
+      ttd_pengirim1: ' ',
+      ttd_pengirim2: ' '
     };
   }
 
@@ -1118,6 +1135,49 @@ export class PerpanjanganService {
         isToday,
         fromCache
       }
+    };
+  }
+
+  /**
+   * Mengambil statistik rekapitulasi perpanjangan PK per angkatan (TMT)
+   * dan jumlah pegawai yang tidak diperpanjang (pemberhentian / pensiun)
+   */
+  static async getStatistikPerpanjangan({ kategori = 'ALL' } = {}) {
+    return await PerpanjanganRepository.getStatistikPerpanjanganPk({ kategori });
+  }
+
+  /**
+   * Mengambil data detail pegawai untuk statistik perpanjangan PK
+   */
+  static async getDetailStatistikPegawai({ page = 1, limit = 50, search = '', tmtCpns = '', status = 'ALL', kategori = 'ALL' } = {}) {
+    const result = await PerpanjanganRepository.getDetailStatistikPegawai({
+      page,
+      limit,
+      search,
+      tmtCpns,
+      status,
+      kategori
+    });
+
+    // Format nama lengkap dengan gelar jika ada
+    const formattedData = result.data.map(pegawai => {
+      let namaLengkap = pegawai.nama || '';
+      if (pegawai.gelarDepan && pegawai.gelarDepan.trim()) {
+        namaLengkap = `${pegawai.gelarDepan.trim()} ${namaLengkap}`;
+      }
+      if (pegawai.gelarBelakang && pegawai.gelarBelakang.trim()) {
+        namaLengkap = `${namaLengkap}, ${pegawai.gelarBelakang.trim()}`;
+      }
+
+      return {
+        ...pegawai,
+        namaLengkap
+      };
+    });
+
+    return {
+      data: formattedData,
+      meta: result.meta
     };
   }
 }

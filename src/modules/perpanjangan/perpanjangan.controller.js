@@ -1,6 +1,13 @@
 import { PerpanjanganService } from './perpanjangan.service.js';
 import { asyncHandler } from '../../middlewares/error.middleware.js';
-import { createUsulanSchema, rejectUsulanSchema, createTemplateSchema, updateSrikandiStatusSchema } from './perpanjangan.validation.js';
+import {
+  createUsulanSchema,
+  rejectUsulanSchema,
+  createTemplateSchema,
+  updateSrikandiStatusSchema,
+  statistikPerpanjanganQuerySchema,
+  detailStatistikPerpanjanganQuerySchema
+} from './perpanjangan.validation.js';
 
 export class PerpanjanganController {
   // ===== TEMPLATE =====
@@ -574,6 +581,88 @@ export class PerpanjanganController {
       success: true,
       message: 'Berhasil mengambil rekap kinerja harian user',
       data
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/perpanjangan/statistik-pk:
+   *   get:
+   *     tags: [Perpanjangan Kontrak]
+   *     summary: Ambil data statistik perpanjangan PK per angkatan (TMT) dan pegawai tidak diperpanjang
+   *     parameters:
+   *       - in: query
+   *         name: kategori
+   *         schema: { type: string, enum: [ALL, PENUH_WAKTU, PARUH_WAKTU] }
+   *         description: Filter kategori pegawai (default ALL)
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil data statistik perpanjangan PK
+   */
+  static getStatistikPerpanjangan = asyncHandler(async (req, res) => {
+    const { error, value } = statistikPerpanjanganQuerySchema.validate(req.query);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message,
+        data: null
+      });
+    }
+
+    const data = await PerpanjanganService.getStatistikPerpanjangan(value);
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil data statistik perpanjangan PK',
+      data
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/perpanjangan/statistik-pk/detail:
+   *   get:
+   *     tags: [Perpanjangan Kontrak]
+   *     summary: Ambil daftar detail pegawai untuk statistik perpanjangan PK
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema: { type: integer, default: 1 }
+   *       - in: query
+   *         name: limit
+   *         schema: { type: integer, default: 50 }
+   *       - in: query
+   *         name: search
+   *         schema: { type: string }
+   *       - in: query
+   *         name: tmtCpns
+   *         schema: { type: string }
+   *         description: Filter angkatan (TMT)
+   *       - in: query
+   *         name: status
+   *         schema: { type: string, enum: [ALL, AKTIF, PENSIUN, TIDAK_DIPERPANJANG] }
+   *       - in: query
+   *         name: kategori
+   *         schema: { type: string, enum: [ALL, PENUH_WAKTU, PARUH_WAKTU] }
+   *     responses:
+   *       200:
+   *         description: Berhasil mengambil daftar pegawai statistik perpanjangan PK
+   */
+  static getDetailStatistikPegawai = asyncHandler(async (req, res) => {
+    const { error, value } = detailStatistikPerpanjanganQuerySchema.validate(req.query);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message,
+        data: null
+      });
+    }
+
+    const result = await PerpanjanganService.getDetailStatistikPegawai(value);
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil daftar pegawai statistik perpanjangan PK',
+      data: result.data,
+      meta: result.meta
     });
   });
 }

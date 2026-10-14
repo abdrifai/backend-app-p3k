@@ -27,6 +27,8 @@ router.delete('/usulan/:id/approved', authenticate, authorize('admin', 'ADMIN', 
 router.get('/next-contract-number/:nipBaru', authenticate, PerpanjanganController.getNextContractNumber);
 router.get('/dashboard-stats', authenticate, PerpanjanganController.getDashboardStats);
 router.get('/kinerja-harian', authenticate, PerpanjanganController.getKinerjaHarian);
+router.get('/statistik-pk', authenticate, PerpanjanganController.getStatistikPerpanjangan);
+router.get('/statistik-pk/detail', authenticate, PerpanjanganController.getDetailStatistikPegawai);
 
 /**
  * POST /api/v1/perpanjangan/kinerja-snapshot
