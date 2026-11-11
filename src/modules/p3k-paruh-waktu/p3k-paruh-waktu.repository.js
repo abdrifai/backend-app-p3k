@@ -118,46 +118,305 @@ export class P3kParuhWaktuRepository {
   }
 
   /**
-   * Get statistics summary of P3K Paruh Waktu
+   * Get comprehensive statistics summary of P3K Paruh Waktu
+   * @param {Object} options
+   * @param {'master'|'staging'} [options.source='master']
    */
-  static async getStats() {
-    const total = await prisma.p3kParuhWaktu.count({
-      where: { isDeleted: false }
+  static async getStats({ source = 'master' } = {}) {
+    let records = [];
+
+    if (source === 'master') {
+      records = await prisma.dataP3kParuhWaktu.findMany({
+        where: { isDeleted: false },
+        select: {
+          id: true,
+          nipBaru: true,
+          nama: true,
+          jenisKelamin: true,
+          tanggalLahir: true,
+          tingkatPendidikanNama: true,
+          pendidikanNama: true,
+          jabatanNama: true,
+          jenisJabatanNama: true,
+          unorNama: true,
+          lokasiKerjaNama: true,
+          tmtCpns: true,
+          agamaNama: true,
+          jenisKawinNama: true,
+          statusPensiun: true
+        }
+      });
+      // Fallback to staging table if master is empty
+      if (records.length === 0) {
+        records = await prisma.p3kParuhWaktu.findMany({
+          where: { isDeleted: false },
+          select: {
+            id: true,
+            nipBaru: true,
+            nama: true,
+            jenisKelamin: true,
+            tanggalLahir: true,
+            tingkatPendidikanNama: true,
+            pendidikanNama: true,
+            jabatanNama: true,
+            jenisJabatanNama: true,
+            unorNama: true,
+            lokasiKerjaNama: true,
+            tmtCpns: true,
+            agamaNama: true,
+            jenisKawinNama: true
+          }
+        });
+      }
+    } else {
+      records = await prisma.p3kParuhWaktu.findMany({
+        where: { isDeleted: false },
+        select: {
+          id: true,
+          nipBaru: true,
+          nama: true,
+          jenisKelamin: true,
+          tanggalLahir: true,
+          tingkatPendidikanNama: true,
+          pendidikanNama: true,
+          jabatanNama: true,
+          jenisJabatanNama: true,
+          unorNama: true,
+          lokasiKerjaNama: true,
+          tmtCpns: true,
+          agamaNama: true,
+          jenisKawinNama: true
+        }
+      });
+    }
+
+    const total = records.length;
+    let aktif = 0;
+    let pensiun = 0;
+    let laki = 0;
+    let perempuan = 0;
+    let tidakDiketahui = 0;
+
+    const pendidikanMap = new Map();
+    const jabatanMap = new Map();
+    const jenisJabatanMap = new Map();
+    const unorMap = new Map();
+    const lokasiMap = new Map();
+    const agamaMap = new Map();
+    const kawinMap = new Map();
+    const pengangkatanMap = new Map();
+
+    const ageRanges = [
+      { label: '< 30 Tahun', min: 0, max: 29, count: 0, laki: 0, perempuan: 0 },
+      { label: '30 - 39 Tahun', min: 30, max: 39, count: 0, laki: 0, perempuan: 0 },
+      { label: '40 - 49 Tahun', min: 40, max: 49, count: 0, laki: 0, perempuan: 0 },
+      { label: '≥ 50 Tahun', min: 50, max: 120, count: 0, laki: 0, perempuan: 0 }
+    ];
+
+    let totalAge = 0;
+    let ageCount = 0;
+    let minAge = 120;
+    let maxAge = 0;
+
+    const monthNames = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+
+    function parseAge(dateStr) {
+      if (!dateStr) return null;
+      const parts = dateStr.trim().split('-');
+      if (parts.length === 3) {
+        let d = parseInt(parts[0], 10);
+        let m = parseInt(parts[1], 10) - 1;
+        let y = parseInt(parts[2], 10);
+        if (parts[0].length === 4) {
+          y = parseInt(parts[0], 10);
+          m = parseInt(parts[1], 10) - 1;
+          d = parseInt(parts[2], 10);
+        }
+        const birth = new Date(y, m, d);
+        if (isNaN(birth.getTime())) return null;
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        return age >= 0 && age < 120 ? age : null;
+      }
+      return null;
+    }
+
+    function normGender(val) {
+      if (!val) return 'UNKNOWN';
+      const u = String(val).toUpperCase();
+      if (u === 'M' || u === 'L' || u === '1' || u.includes('LAKI')) return 'L';
+      if (u === 'F' || u === 'P' || u === '2' || u.includes('PEREMPUAN')) return 'P';
+      return 'UNKNOWN';
+    }
+
+    for (const r of records) {
+      if (r.statusPensiun === 'PENSIUN') {
+        pensiun++;
+      } else {
+        aktif++;
+      }
+
+      const g = normGender(r.jenisKelamin);
+      if (g === 'L') {
+        laki++;
+      } else if (g === 'P') {
+        perempuan++;
+      } else {
+        tidakDiketahui++;
+      }
+
+      const age = parseAge(r.tanggalLahir);
+      if (age !== null) {
+        totalAge += age;
+        ageCount++;
+        if (age < minAge) minAge = age;
+        if (age > maxAge) maxAge = age;
+        const range = ageRanges.find(ar => age >= ar.min && age <= ar.max);
+        if (range) {
+          range.count++;
+          if (g === 'L') range.laki++;
+          if (g === 'P') range.perempuan++;
+        }
+      }
+
+      const incMapWithGender = (map, key, fallback = 'Tidak Diketahui') => {
+        const k = key && key.trim() ? key.trim() : fallback;
+        if (!map.has(k)) {
+          map.set(k, { label: k, count: 0, laki: 0, perempuan: 0 });
+        }
+        const item = map.get(k);
+        item.count++;
+        if (g === 'L') item.laki++;
+        if (g === 'P') item.perempuan++;
+      };
+
+      incMapWithGender(pendidikanMap, r.tingkatPendidikanNama, 'Belum Diatur');
+      incMapWithGender(jabatanMap, r.jabatanNama, 'Belum Ditentukan');
+      incMapWithGender(jenisJabatanMap, r.jenisJabatanNama, 'Lainnya');
+      incMapWithGender(unorMap, r.unorNama, 'Tanpa Unit Kerja');
+      incMapWithGender(lokasiMap, r.lokasiKerjaNama, 'Tanpa Lokasi');
+      incMapWithGender(agamaMap, r.agamaNama, 'Tidak Diketahui');
+      incMapWithGender(kawinMap, r.jenisKawinNama, 'Tidak Diketahui');
+
+      // Pengangkatan (TMT CPNS)
+      if (r.tmtCpns) {
+        const p = r.tmtCpns.trim().split('-');
+        if (p.length === 3) {
+          let mm = p[1];
+          let yy = p[2].length === 4 ? p[2] : p[0];
+          const mIdx = parseInt(mm, 10) - 1;
+          const monthText = monthNames[mIdx] || mm;
+          const sortKey = parseInt(`${yy}${String(mm).padStart(2, '0')}`, 10);
+          const filterValue = `${String(mm).padStart(2, '0')}-${yy}`;
+          const label = `TMT ${monthText} ${yy}`;
+
+          if (!pengangkatanMap.has(sortKey)) {
+            pengangkatanMap.set(sortKey, { label, filterValue, sortKey, count: 0, laki: 0, perempuan: 0 });
+          }
+          const item = pengangkatanMap.get(sortKey);
+          item.count++;
+          if (g === 'L') item.laki++;
+          if (g === 'P') item.perempuan++;
+        }
+      }
+    }
+
+    const formatList = (map) => {
+      return Array.from(map.values())
+        .map(item => {
+          const persenLaki = item.count > 0 ? Number(((item.laki / item.count) * 100).toFixed(1)) : 0;
+          const persenPerempuan = item.count > 0 ? Number(((item.perempuan / item.count) * 100).toFixed(1)) : 0;
+          return { ...item, persenLaki, persenPerempuan };
+        })
+        .sort((a, b) => b.count - a.count);
+    };
+
+    const byPendidikan = formatList(pendidikanMap);
+    const byJabatan = formatList(jabatanMap);
+    const byJenisJabatan = formatList(jenisJabatanMap);
+    const byUnor = formatList(unorMap);
+    const byLokasiKerja = formatList(lokasiMap);
+    const byAgama = formatList(agamaMap);
+    const byStatusKawin = formatList(kawinMap);
+
+    const byAgeRange = ageRanges.map(ar => {
+      const persenLaki = ar.count > 0 ? Number(((ar.laki / ar.count) * 100).toFixed(1)) : 0;
+      const persenPerempuan = ar.count > 0 ? Number(((ar.perempuan / ar.count) * 100).toFixed(1)) : 0;
+      return {
+        label: ar.label,
+        count: ar.count,
+        laki: ar.laki,
+        perempuan: ar.perempuan,
+        persenLaki,
+        persenPerempuan
+      };
     });
 
-    const [byGender, byGolongan, byJenisJabatan, topUnor] = await Promise.all([
-      prisma.p3kParuhWaktu.groupBy({
-        by: ['jenisKelamin'],
-        where: { isDeleted: false },
-        _count: { _all: true }
-      }),
-      prisma.p3kParuhWaktu.groupBy({
-        by: ['golAkhirNama'],
-        where: { isDeleted: false },
-        _count: { _all: true },
-        orderBy: { _count: { golAkhirNama: 'desc' } },
-        take: 10
-      }),
-      prisma.p3kParuhWaktu.groupBy({
-        by: ['jenisJabatanNama'],
-        where: { isDeleted: false },
-        _count: { _all: true }
-      }),
-      prisma.p3kParuhWaktu.groupBy({
-        by: ['unorNama'],
-        where: { isDeleted: false },
-        _count: { _all: true },
-        orderBy: { _count: { unorNama: 'desc' } },
-        take: 10
-      })
-    ]);
+    const byPengangkatan = Array.from(pengangkatanMap.values())
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(item => {
+        const persenLaki = item.count > 0 ? Number(((item.laki / item.count) * 100).toFixed(1)) : 0;
+        const persenPerempuan = item.count > 0 ? Number(((item.perempuan / item.count) * 100).toFixed(1)) : 0;
+        return {
+          label: item.label,
+          filterValue: item.filterValue,
+          count: item.count,
+          laki: item.laki,
+          perempuan: item.perempuan,
+          persenLaki,
+          persenPerempuan
+        };
+      });
+
+    const persenLaki = total > 0 ? Number(((laki / total) * 100).toFixed(1)) : 0;
+    const persenPerempuan = total > 0 ? Number(((perempuan / total) * 100).toFixed(1)) : 0;
+    const avgAge = ageCount > 0 ? Number((totalAge / ageCount).toFixed(1)) : 0;
 
     return {
+      summary: {
+        total,
+        aktif,
+        pensiun,
+        laki,
+        perempuan,
+        tidakDiketahui,
+        persenLaki,
+        persenPerempuan,
+        avgAge,
+        minAge: minAge < 120 ? minAge : 0,
+        maxAge,
+        totalUnitKerja: byUnor.length,
+        totalJabatan: byJabatan.length
+      },
       total,
-      byGender: byGender.map(g => ({ jenisKelamin: g.jenisKelamin || 'Tidak Diketahui', count: g._count._all })),
-      byGolongan: byGolongan.map(g => ({ golongan: g.golAkhirNama || 'Tanpa Golongan', count: g._count._all })),
-      byJenisJabatan: byJenisJabatan.map(j => ({ jenisJabatan: j.jenisJabatanNama || 'Lainnya', count: j._count._all })),
-      topUnor: topUnor.map(u => ({ unorNama: u.unorNama || 'Tanpa Unit Kerja', count: u._count._all }))
+      gender: {
+        laki,
+        perempuan,
+        tidakDiketahui
+      },
+      byPendidikan,
+      byJabatan,
+      byJenisJabatan,
+      byUnor,
+      byAgeRange,
+      byLokasiKerja,
+      byPengangkatan,
+      byAgama,
+      byStatusKawin,
+      // Legacy backward compatibility fields
+      byGender: [
+        { jenisKelamin: 'Laki-laki', count: laki },
+        { jenisKelamin: 'Perempuan', count: perempuan }
+      ],
+      byGolongan: [],
+      topUnor: byUnor.slice(0, 10).map(u => ({ unorNama: u.label, count: u.count }))
     };
   }
 
@@ -285,7 +544,23 @@ export class P3kParuhWaktuRepository {
   /**
    * Find many master DataP3kParuhWaktu
    */
-  static async findMasterMany({ page = 1, limit = 10, search = '', unorNama = '', unorIndukId = '', golAkhirNama = '' } = {}) {
+  static async findMasterMany({
+    page = 1,
+    limit = 10,
+    search = '',
+    unorNama = '',
+    unorIndukId = '',
+    golAkhirNama = '',
+    tingkatPendidikanNama = '',
+    jabatanNama = '',
+    jenisJabatanNama = '',
+    jenisKelamin = '',
+    lokasiKerjaNama = '',
+    agamaNama = '',
+    jenisKawinNama = '',
+    tmtCpns = '',
+    ageRange = ''
+  } = {}) {
     const skip = (page - 1) * limit;
     const where = { isDeleted: false };
 
@@ -294,12 +569,17 @@ export class P3kParuhWaktuRepository {
         { nipBaru: { contains: search } },
         { nama: { contains: search } },
         { unorNama: { contains: search } },
-        { jabatanNama: { contains: search } }
+        { jabatanNama: { contains: search } },
+        { pendidikanNama: { contains: search } }
       ];
     }
 
     if (unorNama) {
-      where.unorNama = { contains: unorNama };
+      if (unorNama === 'Tanpa Unit Kerja' || unorNama === 'Kosong / Belum Diset') {
+        where.OR = [{ unorNama: null }, { unorNama: '' }];
+      } else {
+        where.unorNama = { contains: unorNama };
+      }
     }
 
     if (unorIndukId) {
@@ -308,6 +588,85 @@ export class P3kParuhWaktuRepository {
 
     if (golAkhirNama) {
       where.golAkhirNama = golAkhirNama;
+    }
+
+    if (tingkatPendidikanNama) {
+      if (tingkatPendidikanNama === 'Belum Diatur' || tingkatPendidikanNama === 'Tidak Diketahui') {
+        where.OR = [{ tingkatPendidikanNama: null }, { tingkatPendidikanNama: '' }];
+      } else {
+        where.tingkatPendidikanNama = tingkatPendidikanNama;
+      }
+    }
+
+    if (jabatanNama) {
+      if (jabatanNama === 'Belum Ditentukan' || jabatanNama === 'Tidak Diketahui') {
+        where.OR = [{ jabatanNama: null }, { jabatanNama: '' }];
+      } else {
+        where.jabatanNama = jabatanNama;
+      }
+    }
+
+    if (jenisJabatanNama) {
+      where.jenisJabatanNama = jenisJabatanNama;
+    }
+
+    if (jenisKelamin) {
+      const u = jenisKelamin.toUpperCase();
+      if (u === 'L' || u === 'M' || u === 'LAKI-LAKI') {
+        where.OR = [{ jenisKelamin: 'L' }, { jenisKelamin: 'M' }, { jenisKelamin: { contains: 'Laki' } }];
+      } else if (u === 'P' || u === 'F' || u === 'PEREMPUAN') {
+        where.OR = [{ jenisKelamin: 'P' }, { jenisKelamin: 'F' }, { jenisKelamin: { contains: 'Perempuan' } }];
+      }
+    }
+
+    if (lokasiKerjaNama) {
+      where.lokasiKerjaNama = lokasiKerjaNama;
+    }
+
+    if (agamaNama) {
+      where.agamaNama = agamaNama;
+    }
+
+    if (jenisKawinNama) {
+      where.jenisKawinNama = jenisKawinNama;
+    }
+
+    if (tmtCpns) {
+      where.tmtCpns = { contains: tmtCpns };
+    }
+
+    if (ageRange) {
+      const all = await prisma.dataP3kParuhWaktu.findMany({
+        where: { isDeleted: false },
+        select: { id: true, tanggalLahir: true }
+      });
+      const matchingIds = all.filter(r => {
+        if (!r.tanggalLahir) return false;
+        const parts = r.tanggalLahir.trim().split('-');
+        if (parts.length !== 3) return false;
+        let d = parseInt(parts[0], 10);
+        let m = parseInt(parts[1], 10) - 1;
+        let y = parseInt(parts[2], 10);
+        if (parts[0].length === 4) {
+          y = parseInt(parts[0], 10);
+          m = parseInt(parts[1], 10) - 1;
+          d = parseInt(parts[2], 10);
+        }
+        const birth = new Date(y, m, d);
+        if (isNaN(birth.getTime())) return false;
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        if (ageRange.includes('< 30')) return age < 30;
+        if (ageRange.includes('30 - 39')) return age >= 30 && age <= 39;
+        if (ageRange.includes('40 - 49')) return age >= 40 && age <= 49;
+        if (ageRange.includes('50')) return age >= 50;
+        return true;
+      }).map(r => r.id);
+      where.id = { in: matchingIds };
     }
 
     const [total, data] = await Promise.all([

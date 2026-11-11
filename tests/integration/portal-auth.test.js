@@ -10,6 +10,17 @@ describe('Portal Auth & Aktivasi Mandiri API Tests', () => {
   let dummyParuhWaktu;
 
   beforeAll(async () => {
+    // 0. Pre-cleanup any lingering test dummies
+    await prisma.user.deleteMany({
+      where: { username: { in: ['199501012024211001', '199602022024212002'] } }
+    });
+    await prisma.dataP3k.deleteMany({
+      where: { nipBaru: '199501012024211001' }
+    });
+    await prisma.dataP3kParuhWaktu.deleteMany({
+      where: { nipBaru: '199602022024212002' }
+    });
+
     // 1. Buat dummy DataP3k (Penuh Waktu)
     dummyPenuhWaktu = await prisma.dataP3k.create({
       data: {

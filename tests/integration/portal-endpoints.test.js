@@ -13,6 +13,17 @@ describe('Portal Pegawai Endpoints (/api/v1/portal)', () => {
   let dummyKontrak;
 
   beforeAll(async () => {
+    // 0. Pre-cleanup
+    await prisma.user.deleteMany({
+      where: { username: { in: ['199201012024211005', 'admin_portal_test'] } }
+    });
+    await prisma.riwayatKontrak.deleteMany({
+      where: { dataP3k: { nipBaru: '199201012024211005' } }
+    });
+    await prisma.dataP3k.deleteMany({
+      where: { nipBaru: '199201012024211005' }
+    });
+
     // 1. Buat DataP3k
     dummyPenuh = await prisma.dataP3k.create({
       data: {

@@ -1,5 +1,5 @@
 import { P3kParuhWaktuService } from './p3k-paruh-waktu.service.js';
-import { p3kParuhWaktuQuerySchema, importParuhWaktuOptionSchema } from './p3k-paruh-waktu.validation.js';
+import { p3kParuhWaktuQuerySchema, importParuhWaktuOptionSchema, p3kParuhWaktuStatsQuerySchema } from './p3k-paruh-waktu.validation.js';
 
 export class P3kParuhWaktuController {
   /**
@@ -106,11 +106,39 @@ export class P3kParuhWaktuController {
   }
 
   /**
-   * Get statistics summary
+   * @swagger
+   * /api/v1/p3k-paruh-waktu/stats:
+   *   get:
+   *     tags: [P3K Paruh Waktu]
+   *     summary: Ambil data statistik ringkasan dan demografi P3K Paruh Waktu
+   *     parameters:
+   *       - in: query
+   *         name: source
+   *         schema:
+   *           type: string
+   *           enum: [master, staging]
+   *           default: master
+   *         description: Sumber data statistik (master data atau staging import)
+   *     responses:
+   *       200:
+   *         description: Statistik P3K Paruh Waktu berhasil diambil
+   *       400:
+   *         description: Parameter tidak valid
+   *       500:
+   *         description: Terjadi kesalahan pada server
    */
   static async getStats(req, res, next) {
     try {
-      const stats = await P3kParuhWaktuService.getStats();
+      const { error, value } = p3kParuhWaktuStatsQuerySchema.validate(req.query);
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          message: error.details[0].message
+        });
+      }
+
+      const stats = await P3kParuhWaktuService.getStats(value);
       return res.status(200).json({
         success: true,
         data: stats,

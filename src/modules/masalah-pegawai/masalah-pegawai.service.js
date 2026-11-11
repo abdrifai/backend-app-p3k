@@ -33,12 +33,18 @@ export class MasalahPegawaiService {
     // Verify pegawai exists
     const pegawai = await prisma.dataP3k.findFirst({
       where: { id: data.dataP3kId, isDeleted: false },
-      select: { id: true, nama: true }
+      select: { id: true, nama: true, statusPensiun: true }
     });
 
     if (!pegawai) {
       const err = new Error('Pegawai (Data P3K) tidak ditemukan');
       err.statusCode = 404;
+      throw err;
+    }
+
+    if (pegawai.statusPensiun === 'PENSIUN') {
+      const err = new Error('Pegawai sudah pensiun atau diberhentikan sehingga tidak dapat ditambahkan dalam catatan masalah');
+      err.statusCode = 400;
       throw err;
     }
 
@@ -59,6 +65,23 @@ export class MasalahPegawaiService {
 
   static async updateMasalah(id, data, files, userId) {
     await this.getMasalahById(id);
+
+    if (data.dataP3kId) {
+      const pegawai = await prisma.dataP3k.findFirst({
+        where: { id: data.dataP3kId, isDeleted: false },
+        select: { id: true, nama: true, statusPensiun: true }
+      });
+      if (!pegawai) {
+        const err = new Error('Pegawai (Data P3K) tidak ditemukan');
+        err.statusCode = 404;
+        throw err;
+      }
+      if (pegawai.statusPensiun === 'PENSIUN') {
+        const err = new Error('Pegawai sudah pensiun atau diberhentikan sehingga tidak dapat ditambahkan dalam catatan masalah');
+        err.statusCode = 400;
+        throw err;
+      }
+    }
 
     if (data.kategoriId) {
       const kategori = await prisma.kategoriMasalah.findFirst({

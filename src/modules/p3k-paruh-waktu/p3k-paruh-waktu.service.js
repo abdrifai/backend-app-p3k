@@ -181,9 +181,11 @@ export class P3kParuhWaktuService {
 
   /**
    * Get summary stats
+   * @param {Object} [query={}]
    */
-  static async getStats() {
-    return P3kParuhWaktuRepository.getStats();
+  static async getStats(query = {}) {
+    const source = query?.source === 'staging' ? 'staging' : 'master';
+    return P3kParuhWaktuRepository.getStats({ source });
   }
 
   /**

@@ -106,6 +106,7 @@ export class MasalahPegawaiRepository {
               jabatanNama: true,
               golAkhirNama: true,
               unorNama: true,
+              statusPensiun: true,
               unorInduk: {
                 select: {
                   id: true,
@@ -184,6 +185,7 @@ export class MasalahPegawaiRepository {
             jabatanNama: true,
             golAkhirNama: true,
             unorNama: true,
+            statusPensiun: true,
             nomorHp: true,
             email: true,
             unorInduk: {

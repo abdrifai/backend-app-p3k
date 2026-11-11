@@ -381,6 +381,7 @@ export const DEFAULT_PERMISSIONS = {
     'profil-pegawai',
     'data-p3k',
     'statistik-p3k',
+    'statistik-p3k-paruh-waktu',
     'perbedaan-data',
     'mapping-unor',
     'perpanjangan-pk',
