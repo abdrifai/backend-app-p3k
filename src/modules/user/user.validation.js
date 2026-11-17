@@ -11,7 +11,10 @@ export const createUserSchema = Joi.object({
     'string.pattern.base': 'NIK pejabat harus terdiri dari 16 digit angka'
   }),
   jabatanPejabat: Joi.string().valid('KEPALA_BKPSDM', 'SEKDA', 'BUPATI').allow('', null),
-  nipPejabat: Joi.string().max(30).allow('', null)
+  nipPejabat: Joi.string().max(30).allow('', null),
+  dataP3kId: Joi.string().allow('', null),
+  dataP3kParuhWaktuId: Joi.string().allow('', null),
+  jenisPegawaiPortal: Joi.string().valid('PENUH_WAKTU', 'PARUH_WAKTU').allow('', null)
 });
 
 export const loginUserSchema = Joi.object({
@@ -29,7 +32,10 @@ export const updateUserSchema = Joi.object({
     'string.pattern.base': 'NIK pejabat harus terdiri dari 16 digit angka'
   }),
   jabatanPejabat: Joi.string().valid('KEPALA_BKPSDM', 'SEKDA', 'BUPATI').allow('', null),
-  nipPejabat: Joi.string().max(30).allow('', null)
+  nipPejabat: Joi.string().max(30).allow('', null),
+  dataP3kId: Joi.string().allow('', null),
+  dataP3kParuhWaktuId: Joi.string().allow('', null),
+  jenisPegawaiPortal: Joi.string().valid('PENUH_WAKTU', 'PARUH_WAKTU').allow('', null)
 });
 
 export const updateProfileSchema = Joi.object({

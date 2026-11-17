@@ -85,8 +85,40 @@ class UserRepository {
   }
 
   async findByUsername(username) {
+    const clean = String(username || '').trim();
     return await prisma.user.findFirst({
-      where: { username, isDeleted: false }
+      where: {
+        isDeleted: false,
+        OR: [
+          { username: clean },
+          { email: clean }
+        ]
+      },
+      include: {
+        dataP3k: {
+          select: {
+            id: true,
+            nipBaru: true,
+            nama: true,
+            gelarDepan: true,
+            gelarBelakang: true,
+            jabatanNama: true,
+            unorNama: true
+          }
+        },
+        dataP3kParuhWaktu: {
+          select: {
+            id: true,
+            nipBaru: true,
+            nama: true,
+            gelarDepan: true,
+            gelarBelakang: true,
+            jabatanNama: true,
+            unorNama: true
+          }
+        },
+        pejabatPenandatangan: true
+      }
     });
   }
 
@@ -102,6 +134,31 @@ class UserRepository {
         foto: true,
         createdAt: true,
         updatedAt: true,
+        dataP3kId: true,
+        dataP3kParuhWaktuId: true,
+        jenisPegawaiPortal: true,
+        dataP3k: {
+          select: {
+            id: true,
+            nipBaru: true,
+            nama: true,
+            gelarDepan: true,
+            gelarBelakang: true,
+            jabatanNama: true,
+            unorNama: true
+          }
+        },
+        dataP3kParuhWaktu: {
+          select: {
+            id: true,
+            nipBaru: true,
+            nama: true,
+            gelarDepan: true,
+            gelarBelakang: true,
+            jabatanNama: true,
+            unorNama: true
+          }
+        },
         pejabatPenandatangan: {
           select: {
             id: true,
@@ -149,6 +206,31 @@ class UserRepository {
           isDeleted: true,
           createdAt: true,
           updatedAt: true,
+          dataP3kId: true,
+          dataP3kParuhWaktuId: true,
+          jenisPegawaiPortal: true,
+          dataP3k: {
+            select: {
+              id: true,
+              nipBaru: true,
+              nama: true,
+              gelarDepan: true,
+              gelarBelakang: true,
+              jabatanNama: true,
+              unorNama: true
+            }
+          },
+          dataP3kParuhWaktu: {
+            select: {
+              id: true,
+              nipBaru: true,
+              nama: true,
+              gelarDepan: true,
+              gelarBelakang: true,
+              jabatanNama: true,
+              unorNama: true
+            }
+          },
           pejabatPenandatangan: {
             select: {
               id: true,

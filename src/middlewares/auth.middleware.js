@@ -25,7 +25,16 @@ export const authenticate = async (req, res, next) => {
     // We only need basic user info in req.user
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, username: true, role: true, isDeleted: true, lastActiveAt: true }
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        isDeleted: true,
+        lastActiveAt: true,
+        dataP3kId: true,
+        dataP3kParuhWaktuId: true,
+        jenisPegawaiPortal: true
+      }
     });
 
     if (!user || user.isDeleted) {
@@ -97,9 +106,12 @@ export const denyRole = (...roles) => {
     }
 
     const userRoles = req.user.roles || String(req.user.role || '').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
-    const isDenied = userRoles.some(r => denied.includes(r));
+    
+    // Jika user memiliki role multi-role (misal admin + pegawai),
+    // izinkan akses selama user memiliki setidaknya satu role yang TIDAK di-deny (staf).
+    const hasAllowedRole = userRoles.some(r => !denied.includes(r));
 
-    if (isDenied) {
+    if (!hasAllowedRole) {
       return res.status(403).json({ 
         success: false, 
         message: `Akses ditolak untuk role [${userRoles.join(', ')}]`

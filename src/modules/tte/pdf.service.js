@@ -77,11 +77,22 @@ export const pdfService = {
     const cmd = getLibreOfficeCommand();
 
     try {
-      // soffice --headless --convert-to pdf --outdir <outputDir> <inputDocxPath>
-      const args = ['--headless', '--convert-to', 'pdf', '--outdir', resolvedOutputDir, resolvedInput];
+      // soffice --headless -env:UserInstallation=file:///tmp/libo_profile --convert-to pdf --outdir <outputDir> <inputDocxPath>
+      const args = [
+        '--headless',
+        '-env:UserInstallation=file:///tmp/libo_profile',
+        '--convert-to',
+        'pdf',
+        '--outdir',
+        resolvedOutputDir,
+        resolvedInput
+      ];
       logger.info(`Menjalankan konversi DOCX ke PDF: ${cmd} ${args.join(' ')}`);
 
-      await execFileAsync(cmd, args, { timeout: 60000 });
+      await execFileAsync(cmd, args, {
+        timeout: 60000,
+        env: { ...process.env, HOME: '/tmp' }
+      });
 
       if (fs.existsSync(targetPdfPath)) {
         logger.info(`Konversi DOCX ke PDF berhasil: ${targetPdfPath}`);

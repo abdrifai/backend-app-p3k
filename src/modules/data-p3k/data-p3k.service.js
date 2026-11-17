@@ -167,7 +167,8 @@ export class DataP3kService {
       unorStats,
       golonganStats,
       pengangkatanStats,
-      jenisJabatanStats
+      jenisJabatanStats,
+      jabatanStats
     ] = await Promise.all([
       DataP3kRepository.getTotalCount({}),
       DataP3kRepository.getTotalCount({ statusPensiun: 'AKTIF' }),
@@ -178,7 +179,8 @@ export class DataP3kService {
       DataP3kRepository.groupByUnorInduk(activeFilter),
       DataP3kRepository.groupByFieldWithGender('golAkhirNama', activeFilter),
       DataP3kRepository.getTmtPengangkatanStats(activeFilter),
-      DataP3kRepository.groupByField('jenisJabatanNama', activeFilter)
+      DataP3kRepository.groupByFieldWithGender('jenisJabatanNama', activeFilter),
+      DataP3kRepository.groupJabatanByJenisWithGender(activeFilter)
     ]);
 
     const combinedTotal = totalActive + totalParuhWaktu;
@@ -197,7 +199,8 @@ export class DataP3kService {
       byUnor: unorStats,
       byGolongan: golonganStats,
       byPengangkatan: pengangkatanStats,
-      byJenisJabatan: jenisJabatanStats
+      byJenisJabatan: jenisJabatanStats,
+      byJabatan: jabatanStats
     };
   }
   static async getDifferences({ page = 1, limit = 10, search = '' }) {

@@ -1,7 +1,7 @@
 # Production build for Backend
 FROM node:20-alpine
 
-RUN apk add --no-cache openssl libc6-compat
+RUN apk add --no-cache openssl libc6-compat libreoffice ttf-dejavu font-noto
 
 # Set working directory
 WORKDIR /app

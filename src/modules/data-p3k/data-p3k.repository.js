@@ -236,6 +236,84 @@ export class DataP3kRepository {
     return list;
   }
 
+  static async groupJabatanByJenisWithGender(additionalWhere = {}) {
+    const results = await prisma.dataP3k.groupBy({
+      by: ['jenisJabatanNama', 'jabatanNama', 'jenisKelamin'],
+      where: { isDeleted: false, ...additionalWhere },
+      _count: { id: true }
+    });
+
+    // Build nested map: jenisJabatan -> jabatan -> gender counts
+    const jenisMap = new Map();
+
+    for (const r of results) {
+      const jenisLabel = r.jenisJabatanNama || 'Tidak Diketahui';
+      const jabatanLabel = r.jabatanNama || 'Tidak Diketahui';
+      const count = r._count.id;
+
+      if (!jenisMap.has(jenisLabel)) {
+        jenisMap.set(jenisLabel, {
+          jenisJabatan: jenisLabel,
+          totalCount: 0,
+          totalLaki: 0,
+          totalPerempuan: 0,
+          jabatanMap: new Map()
+        });
+      }
+
+      const jenisEntry = jenisMap.get(jenisLabel);
+
+      if (!jenisEntry.jabatanMap.has(jabatanLabel)) {
+        jenisEntry.jabatanMap.set(jabatanLabel, { label: jabatanLabel, count: 0, laki: 0, perempuan: 0 });
+      }
+
+      const jabatanEntry = jenisEntry.jabatanMap.get(jabatanLabel);
+      jabatanEntry.count += count;
+      jenisEntry.totalCount += count;
+
+      const val = (r.jenisKelamin || '').toUpperCase();
+      if (val === 'M' || val === 'L' || val === '1' || val.includes('LAKI')) {
+        jabatanEntry.laki += count;
+        jenisEntry.totalLaki += count;
+      } else if (val === 'F' || val === 'P' || val === '2' || val.includes('PEREMPUAN')) {
+        jabatanEntry.perempuan += count;
+        jenisEntry.totalPerempuan += count;
+      }
+    }
+
+    // Convert to sorted arrays with percentages
+    const list = Array.from(jenisMap.values()).map((jenis) => {
+      const jabatanList = Array.from(jenis.jabatanMap.values()).map((item) => {
+        const total = item.count;
+        return {
+          ...item,
+          persenLaki: total > 0 ? Number(((item.laki / total) * 100).toFixed(1)) : 0,
+          persenPerempuan: total > 0 ? Number(((item.perempuan / total) * 100).toFixed(1)) : 0
+        };
+      });
+      jabatanList.sort((a, b) => b.count - a.count);
+
+      const t = jenis.totalCount;
+      return {
+        label: jenis.jenisJabatan,
+        count: t,
+        laki: jenis.totalLaki,
+        perempuan: jenis.totalPerempuan,
+        jenisJabatan: jenis.jenisJabatan,
+        totalCount: t,
+        totalLaki: jenis.totalLaki,
+        totalPerempuan: jenis.totalPerempuan,
+        persenLaki: t > 0 ? Number(((jenis.totalLaki / t) * 100).toFixed(1)) : 0,
+        persenPerempuan: t > 0 ? Number(((jenis.totalPerempuan / t) * 100).toFixed(1)) : 0,
+        totalJabatan: jabatanList.length,
+        jabatanList
+      };
+    });
+
+    list.sort((a, b) => b.totalCount - a.totalCount);
+    return list;
+  }
+
   static async groupByUnorInduk(additionalWhere = {}) {
     const results = await prisma.dataP3k.groupBy({
       by: ['unorIndukId'],

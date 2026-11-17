@@ -18,13 +18,27 @@ function normalizeRoles(data) {
 function formatUser(user) {
   if (!user) return null;
   const roles = String(user.role || 'user').toLowerCase().split(',').map(r => r.trim()).filter(Boolean);
+  const p3k = user.dataP3k || user.dataP3kParuhWaktu || null;
+  const p3kNama = p3k ? [p3k.gelarDepan, p3k.nama, p3k.gelarBelakang].filter(Boolean).join(' ').trim() || p3k.nama : null;
+
   return {
     ...user,
     roles,
     role: roles.join(','),
     nik: user.pejabatPenandatangan?.nik || null,
     jabatanPejabat: user.pejabatPenandatangan?.jabatan || null,
-    nipPejabat: user.pejabatPenandatangan?.nip || null
+    nipPejabat: user.pejabatPenandatangan?.nip || null,
+    dataP3kId: user.dataP3kId || null,
+    dataP3kParuhWaktuId: user.dataP3kParuhWaktuId || null,
+    jenisPegawaiPortal: user.jenisPegawaiPortal || null,
+    pegawaiP3k: p3k ? {
+      id: p3k.id,
+      nipBaru: p3k.nipBaru,
+      nama: p3kNama,
+      jabatanNama: p3k.jabatanNama,
+      unorNama: p3k.unorNama,
+      kategori: user.dataP3kId ? 'PENUH_WAKTU' : 'PARUH_WAKTU'
+    } : null
   };
 }
 
@@ -80,7 +94,10 @@ class UserService {
         password: hashedPassword,
         nik: data.nik || null,
         jabatanPejabat: data.jabatanPejabat || null,
-        nipPejabat: data.nipPejabat || null
+        nipPejabat: data.nipPejabat || null,
+        dataP3kId: data.dataP3kId || null,
+        dataP3kParuhWaktuId: data.dataP3kParuhWaktuId || null,
+        jenisPegawaiPortal: data.dataP3kId ? 'PENUH_WAKTU' : (data.dataP3kParuhWaktuId ? 'PARUH_WAKTU' : null)
       };
       const created = await userRepository.create(createPayload);
       return formatUser(created);
@@ -114,8 +131,9 @@ class UserService {
   }
 
   async login(username, password, { ip, userAgent } = {}) {
-    // Find user
-    const user = await userRepository.findByUsername(username);
+    const cleanUsername = String(username || '').trim();
+    // Find user by username or email
+    const user = await userRepository.findByUsername(cleanUsername);
     if (!user) {
       const error = new Error('Invalid username or password');
       error.statusCode = 401;
@@ -137,18 +155,19 @@ class UserService {
 
     // Jika user adalah pegawai portal, pastikan data P3K masih aktif
     if (userRoles.includes('pegawai')) {
+      const isMultiRoleAdminOrUser = userRoles.some(r => ['admin', 'admin_utama', 'superadmin', 'user', 'verifikator', 'pensiun', 'pejabat_ttd'].includes(r));
       if (!user.dataP3kId && !user.dataP3kParuhWaktuId) {
-        const error = new Error('Akun pegawai tidak tertaut dengan data P3K aktif.');
-        error.statusCode = 403;
-        throw error;
-      }
-
-      if (user.dataP3kId) {
+        if (!isMultiRoleAdminOrUser) {
+          const error = new Error('Akun pegawai tidak tertaut dengan data P3K aktif.');
+          error.statusCode = 403;
+          throw error;
+        }
+      } else if (user.dataP3kId) {
         const p3k = await prisma.dataP3k.findFirst({
           where: { id: user.dataP3kId, isDeleted: false, statusPensiun: 'AKTIF' },
           select: { id: true }
         });
-        if (!p3k) {
+        if (!p3k && !isMultiRoleAdminOrUser) {
           const error = new Error('Status kepegawaian Anda sudah tidak aktif atau pensiun.');
           error.statusCode = 403;
           throw error;
@@ -158,7 +177,7 @@ class UserService {
           where: { id: user.dataP3kParuhWaktuId, isDeleted: false, statusPensiun: 'AKTIF' },
           select: { id: true }
         });
-        if (!paruh) {
+        if (!paruh && !isMultiRoleAdminOrUser) {
           const error = new Error('Status kepegawaian Anda sudah tidak aktif atau pensiun.');
           error.statusCode = 403;
           throw error;
@@ -312,6 +331,26 @@ class UserService {
     if (payload.nik !== undefined) updateData.nik = payload.nik;
     if (payload.jabatanPejabat !== undefined) updateData.jabatanPejabat = payload.jabatanPejabat;
     if (payload.nipPejabat !== undefined) updateData.nipPejabat = payload.nipPejabat;
+
+    if (payload.dataP3kId !== undefined) {
+      updateData.dataP3kId = payload.dataP3kId || null;
+      if (payload.dataP3kId) {
+        updateData.jenisPegawaiPortal = 'PENUH_WAKTU';
+        updateData.dataP3kParuhWaktuId = null;
+      }
+    }
+    if (payload.dataP3kParuhWaktuId !== undefined) {
+      updateData.dataP3kParuhWaktuId = payload.dataP3kParuhWaktuId || null;
+      if (payload.dataP3kParuhWaktuId) {
+        updateData.jenisPegawaiPortal = 'PARUH_WAKTU';
+        updateData.dataP3kId = null;
+      }
+    }
+    if (payload.dataP3kId === null && payload.dataP3kParuhWaktuId === null) {
+      updateData.dataP3kId = null;
+      updateData.dataP3kParuhWaktuId = null;
+      updateData.jenisPegawaiPortal = null;
+    }
 
     try {
       const updated = await userRepository.update(id, updateData);
