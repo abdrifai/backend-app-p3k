@@ -30,3 +30,4 @@ class EmailMonitoringController {
 }
 
 export default new EmailMonitoringController();
+

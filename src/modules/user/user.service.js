@@ -241,7 +241,8 @@ class UserService {
 
     await userRepository.createPasswordResetToken(email, token, expiresAt);
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
+    const frontendBase = (process.env.FRONTEND_URL || 'http://sipppk.tojounauna.go.id').replace(/\/+$/, '');
+    const resetUrl = `${frontendBase}/reset-password?token=${token}`;
     await sendPasswordResetEmail(email, resetUrl);
 
     return { message: 'Tautan reset password telah dikirimkan ke email Anda.' };

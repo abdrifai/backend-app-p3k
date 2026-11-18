@@ -73,3 +73,4 @@ class EmailMonitoringRepository {
 }
 
 export default new EmailMonitoringRepository();
+

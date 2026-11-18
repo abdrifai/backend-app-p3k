@@ -103,3 +103,4 @@ class EmailMonitoringService {
 }
 
 export default new EmailMonitoringService();
+

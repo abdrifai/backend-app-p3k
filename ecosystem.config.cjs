@@ -23,8 +23,8 @@ module.exports = {
                 // Path Konfigurasi (Opsional, untuk memastikan hapus file lancar)
                 UPLOAD_DIR: "/var/www/backend-app-p3k/uploads",
 
-                // Jika backend Anda perlu tahu domain frontend untuk CORS
-                FRONTEND_URL: "http://33.33.33.5"
+                // Jika backend Anda perlu tahu domain frontend untuk CORS & Reset Password Link
+                FRONTEND_URL: process.env.FRONTEND_URL || "http://sipppk.tojounauna.go.id"
             }
         }
     ]
