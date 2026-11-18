@@ -24,7 +24,7 @@ module.exports = {
                 UPLOAD_DIR: "/var/www/backend-app-p3k/uploads",
 
                 // Jika backend Anda perlu tahu domain frontend untuk CORS & Reset Password Link
-                FRONTEND_URL: process.env.FRONTEND_URL || "http://sipppk.tojounauna.go.id"
+                FRONTEND_URL: process.env.FRONTEND_URL || "https://sipppk.tojounauna.go.id"
             }
         }
     ]

@@ -241,7 +241,7 @@ class UserService {
 
     await userRepository.createPasswordResetToken(email, token, expiresAt);
 
-    const frontendBase = (process.env.FRONTEND_URL || 'http://sipppk.tojounauna.go.id').replace(/\/+$/, '');
+    const frontendBase = (process.env.FRONTEND_URL || 'https://sipppk.tojounauna.go.id').replace(/\/+$/, '');
     const resetUrl = `${frontendBase}/reset-password?token=${token}`;
     await sendPasswordResetEmail(email, resetUrl);
 
