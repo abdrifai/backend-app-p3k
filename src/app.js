@@ -26,6 +26,7 @@ import { kategoriMasalahRoutes } from './modules/kategori-masalah/kategori-masal
 import { masalahPegawaiRoutes } from './modules/masalah-pegawai/masalah-pegawai.routes.js';
 import { refJenisPensiunRoutes } from './modules/ref-jenis-pensiun/ref-jenis-pensiun.routes.js';
 import { pemberhentianRoutes } from './modules/pemberhentian/pemberhentian.routes.js';
+import emailMonitoringRoutes from './modules/email-monitoring/email-monitoring.routes.js';
 import { portalAuthRoutes } from './modules/portal-auth/portal-auth.routes.js';
 import { portalRoutes } from './modules/portal/portal.routes.js';
 import portalPerbaikanRoutes from './modules/portal-perbaikan/perbaikan.routes.js';
@@ -119,6 +120,7 @@ app.use('/api/v1/kategori-masalah', staffGuard, kategoriMasalahRoutes);
 app.use('/api/v1/masalah-pegawai', staffGuard, masalahPegawaiRoutes);
 app.use('/api/v1/ref-jenis-pensiun', staffGuard, refJenisPensiunRoutes);
 app.use('/api/v1/pemberhentian', staffGuard, pemberhentianRoutes);
+app.use('/api/v1/email-monitoring', emailMonitoringRoutes);
 
 // 404 Handler
 app.use(notFoundHandler);

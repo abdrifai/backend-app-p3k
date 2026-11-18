@@ -3,8 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create a transporter using environment variables or a default simple configuration
-// For development, we can test using Ethereal email or just log to console
+// Inisialisasi Transporter Nodemailer
 const port = parseInt(process.env.SMTP_PORT || '465');
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -19,6 +18,81 @@ const transporter = nodemailer.createTransport({
   greetingTimeout: 10000,   // 10 detik
   socketTimeout: 15000,     // 15 detik
 });
+
+/**
+ * Parser error SMTP cerdas untuk mendeteksi kuota habis, auth gagal, atau timeout
+ */
+export const handleSmtpError = (error, defaultMessage = 'Gagal mengirimkan email') => {
+  const msg = String(error.message || '').toLowerCase();
+  const resp = String(error.response || '').toLowerCase();
+  const code = error.responseCode;
+
+  // 1. Deteksi batas kuota harian Gmail (550 5.4.5)
+  if (
+    (code === 550 && (msg.includes('quota') || resp.includes('quota') || msg.includes('5.4.5') || resp.includes('5.4.5'))) ||
+    msg.includes('daily user-sending quota exceeded') ||
+    resp.includes('daily user-sending quota exceeded') ||
+    msg.includes('daily sending quota exceeded') ||
+    resp.includes('daily sending quota exceeded') ||
+    msg.includes('sending limit exceeded') ||
+    resp.includes('sending limit exceeded') ||
+    msg.includes('quota exceeded') ||
+    resp.includes('quota exceeded')
+  ) {
+    const err = new Error(
+      'Batas kuota pengiriman email harian (500 email/hari) telah tercapai pada akun Gmail pengirim. Silakan hubungi Administrator BKPSDM atau coba lagi besok.'
+    );
+    err.statusCode = 429; // Too Many Requests
+    return err;
+  }
+
+  // 2. Deteksi kesalahan autentikasi SMTP (535)
+  if (
+    code === 535 ||
+    msg.includes('535') ||
+    msg.includes('badcredentials') ||
+    msg.includes('username and password not accepted') ||
+    msg.includes('invalid credentials')
+  ) {
+    const err = new Error(
+      'Autentikasi akun email SMTP gagal. Periksa kembali App Password / kredensial di konfigurasi server.'
+    );
+    err.statusCode = 502;
+    return err;
+  }
+
+  // 3. Deteksi batas penerima sementara (452)
+  if (code === 452 || msg.includes('too many recipients') || resp.includes('too many recipients')) {
+    const err = new Error(
+      'Batas pengiriman penerima sementara terlampaui. Mohon tunggu beberapa saat sebelum mencoba kembali.'
+    );
+    err.statusCode = 429;
+    return err;
+  }
+
+  // 4. Deteksi timeout koneksi
+  if (error.code === 'ETIMEDOUT' || msg.includes('timeout') || error.code === 'ESOCKETTIMEDOUT') {
+    const err = new Error('Waktu tunggu koneksi ke server email habis (Timeout). Periksa koneksi internet server.');
+    err.statusCode = 504;
+    return err;
+  }
+
+  const err = new Error(defaultMessage);
+  err.statusCode = 502;
+  return err;
+};
+
+/**
+ * Uji koneksi transporter SMTP
+ */
+export const verifySmtpConnection = async () => {
+  try {
+    await transporter.verify();
+    return { success: true, message: 'Koneksi ke server SMTP aktif dan autentikasi berhasil' };
+  } catch (error) {
+    throw handleSmtpError(error, 'Koneksi ke server SMTP gagal diverifikasi');
+  }
+};
 
 export const sendPasswordResetEmail = async (toEmail, resetUrl) => {
   const mailOptions = {
@@ -55,9 +129,7 @@ export const sendPasswordResetEmail = async (toEmail, resetUrl) => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('Error sending reset email via SMTP:', error.message);
-    const err = new Error('Gagal mengirimkan email reset password. Periksa koneksi/server email.');
-    err.statusCode = 502;
-    throw err;
+    throw handleSmtpError(error, 'Gagal mengirimkan email reset password. Periksa koneksi/server email.');
   }
 };
 
@@ -101,8 +173,6 @@ export const sendOtpActivationEmail = async (toEmail, otpCode, namaPegawai = 'Pe
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('Error sending OTP email via SMTP:', error.message);
-    const err = new Error('Gagal mengirimkan email kode OTP aktivasi. Periksa koneksi/kredensial server email SMTP.');
-    err.statusCode = 502;
-    throw err;
+    throw handleSmtpError(error, 'Gagal mengirimkan email kode OTP aktivasi. Periksa koneksi/kredensial server email SMTP.');
   }
 };
