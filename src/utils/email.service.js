@@ -5,7 +5,7 @@ dotenv.config();
 
 // Create a transporter using environment variables or a default simple configuration
 // For development, we can test using Ethereal email or just log to console
-const port = parseInt(process.env.SMTP_PORT || '587');
+const port = parseInt(process.env.SMTP_PORT || '465');
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: port,
@@ -14,6 +14,10 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS ? String(process.env.SMTP_PASS).replace(/\s+/g, '') : '',
   },
+  family: 4,               // Wajib di Linux VPS: paksa IPv4 agar tidak hang saat DNS me-resolve IPv6
+  connectionTimeout: 10000, // 10 detik (mencegah request menggantung melebihi timeout Nginx 60s)
+  greetingTimeout: 10000,   // 10 detik
+  socketTimeout: 15000,     // 15 detik
 });
 
 export const sendPasswordResetEmail = async (toEmail, resetUrl) => {
