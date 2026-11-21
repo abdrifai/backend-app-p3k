@@ -331,6 +331,15 @@ export const MENU_CATALOG = [
     group: 'Pengaturan - Referensi',
     order: 6.8
   },
+  {
+    key: 'setting-template-kontrak',
+    label: 'Template Kontrak',
+    path: '/setting/template-kontrak',
+    icon: 'ri-file-word-line',
+    parentKey: 'pengaturan',
+    group: 'Pengaturan - Referensi',
+    order: 6.85
+  },
   // Sub-menu Pengaturan: Sistem & Keamanan
   {
     key: 'setting-manajemen-user',

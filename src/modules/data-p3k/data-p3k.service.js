@@ -4,10 +4,32 @@ import TaskRepository from '../task/task.repository.js';
 import activityLogService from '../activity-log/activityLog.service.js';
 import prisma from '../../config/database.js';
 
+let statisticsCache = null;
+let statisticsCacheTime = 0;
+const STATS_CACHE_TTL = 15 * 60 * 1000; // 15 menit cache TTL
+
 export class DataP3kService {
+  static invalidateStatisticsCache() {
+    statisticsCache = null;
+    statisticsCacheTime = 0;
+    // Tandai juga snapshot di database sebagai stale
+    DataP3kService.markStatisticsStale().catch(() => {});
+  }
+
+  static async markStatisticsStale() {
+    try {
+      await prisma.statistikSnapshot.updateMany({
+        where: { tipe: 'PENUH_WAKTU' },
+        data: { isStale: true }
+      });
+    } catch (e) {
+      // ignore if table error
+    }
+  }
   static async syncDataFromImport() {
     try {
       const syncedCount = await DataP3kRepository.syncFromImport();
+      DataP3kService.invalidateStatisticsCache();
       return { syncedCount };
     } catch (error) {
       console.error('DataP3kService syncDataFromImport Error:', error);
@@ -15,12 +37,12 @@ export class DataP3kService {
     }
   }
 
-  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '', jabatanNama = '', jenisKelamin = '', kategori = 'ALL' }) {
+  static async getAllDataP3k({ page = 1, limit = 10, search = '', unorIndukId = '', unitKerja = '', unitKerjaKosong = false, unitKerjaAda = false, statusPensiun = '', tmtCpns = '', pendidikan = '', golongan = '', jenisJabatan = '', jabatanNama = '', jenisKelamin = '', kategori = 'ALL', kelompokJabatan = '' }) {
     const skip = (page - 1) * limit;
 
     if (kategori === 'PARUH_WAKTU') {
-      const where = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
-      const whereActive = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
+      const where = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan });
+      const whereActive = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan });
       const [data, totalCount, totalActive] = await Promise.all([
         prisma.dataP3kParuhWaktu.findMany({
           where,
@@ -47,9 +69,9 @@ export class DataP3kService {
 
     if (kategori === 'PENUH_WAKTU') {
       const [data, totalCount, totalActive] = await Promise.all([
-        DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }),
-        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }),
-        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin })
+        DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan }),
+        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan }),
+        DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan })
       ]);
 
       return {
@@ -66,8 +88,8 @@ export class DataP3kService {
 
     // Default: If statusPensiun === 'AKTIF' and kategori === 'ALL', combine both
     if (statusPensiun === 'AKTIF') {
-      const whereP3k = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
-      const whereParuh = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
+      const whereP3k = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan });
+      const whereParuh = DataP3kRepository._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan });
 
       const [totalP3k, totalParuh] = await Promise.all([
         prisma.dataP3k.count({ where: whereP3k }),
@@ -108,9 +130,9 @@ export class DataP3kService {
     }
 
     const [data, totalCount, totalActive] = await Promise.all([
-      DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }),
-      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }),
-      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin })
+      DataP3kRepository.findAll({ skip, take: limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan }),
+      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan }),
+      DataP3kRepository.count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun: 'AKTIF', tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan })
     ]);
 
     return {
@@ -154,7 +176,7 @@ export class DataP3kService {
     };
   }
 
-  static async getStatistics() {
+  static async calculateStatistics() {
     const activeFilter = { statusPensiun: 'AKTIF' };
 
     const [
@@ -168,7 +190,8 @@ export class DataP3kService {
       golonganStats,
       pengangkatanStats,
       jenisJabatanStats,
-      jabatanStats
+      jabatanStats,
+      kelompokJabatanStats
     ] = await Promise.all([
       DataP3kRepository.getTotalCount({}),
       DataP3kRepository.getTotalCount({ statusPensiun: 'AKTIF' }),
@@ -180,10 +203,14 @@ export class DataP3kService {
       DataP3kRepository.groupByFieldWithGender('golAkhirNama', activeFilter),
       DataP3kRepository.getTmtPengangkatanStats(activeFilter),
       DataP3kRepository.groupByFieldWithGender('jenisJabatanNama', activeFilter),
-      DataP3kRepository.groupJabatanByJenisWithGender(activeFilter)
+      DataP3kRepository.groupJabatanByJenisWithGender(activeFilter),
+      DataP3kRepository.groupJabatanByKelompokWithGender(activeFilter)
     ]);
 
     const combinedTotal = totalActive + totalParuhWaktu;
+    const guruStat = kelompokJabatanStats.find((k) => k.label === 'Guru') || { count: 0, laki: 0, perempuan: 0, persenLaki: 0, persenPerempuan: 0, totalJabatan: 0, jabatanList: [] };
+    const kesehatanStat = kelompokJabatanStats.find((k) => k.label === 'Kesehatan') || { count: 0, laki: 0, perempuan: 0, persenLaki: 0, persenPerempuan: 0, totalJabatan: 0, jabatanList: [] };
+    const teknisStat = kelompokJabatanStats.find((k) => k.label === 'Teknis') || { count: 0, laki: 0, perempuan: 0, persenLaki: 0, persenPerempuan: 0, totalJabatan: 0, jabatanList: [] };
 
     return {
       summary: {
@@ -191,7 +218,15 @@ export class DataP3kService {
         totalAllPenuhWaktu: totalAll,
         aktif: totalActive,
         paruhWaktu: totalParuhWaktu,
-        pensiun: totalPensiun
+        pensiun: totalPensiun,
+        guru: guruStat.count,
+        kesehatan: kesehatanStat.count,
+        teknis: teknisStat.count
+      },
+      rekapKelompok: {
+        guru: guruStat,
+        kesehatan: kesehatanStat,
+        teknis: teknisStat
       },
       total: totalActive, // Keep for backward compatibility with existing charts
       gender: genderCount,
@@ -200,8 +235,91 @@ export class DataP3kService {
       byGolongan: golonganStats,
       byPengangkatan: pengangkatanStats,
       byJenisJabatan: jenisJabatanStats,
-      byJabatan: jabatanStats
+      byJabatan: jabatanStats,
+      byKelompokJabatan: kelompokJabatanStats
     };
+  }
+
+  static async syncStatistics(syncedBy = 'SYSTEM') {
+    const freshStats = await DataP3kService.calculateStatistics();
+    const now = new Date();
+
+    const snapshot = await prisma.statistikSnapshot.upsert({
+      where: { tipe: 'PENUH_WAKTU' },
+      update: {
+        dataJson: JSON.stringify(freshStats),
+        totalPegawai: freshStats.total || 0,
+        totalGuru: freshStats.rekapKelompok?.guru?.count || 0,
+        totalKesehatan: freshStats.rekapKelompok?.kesehatan?.count || 0,
+        totalTeknis: freshStats.rekapKelompok?.teknis?.count || 0,
+        isStale: false,
+        lastSyncedAt: now,
+        syncedBy
+      },
+      create: {
+        tipe: 'PENUH_WAKTU',
+        dataJson: JSON.stringify(freshStats),
+        totalPegawai: freshStats.total || 0,
+        totalGuru: freshStats.rekapKelompok?.guru?.count || 0,
+        totalKesehatan: freshStats.rekapKelompok?.kesehatan?.count || 0,
+        totalTeknis: freshStats.rekapKelompok?.teknis?.count || 0,
+        isStale: false,
+        lastSyncedAt: now,
+        syncedBy
+      }
+    });
+
+    const result = {
+      ...freshStats,
+      syncInfo: {
+        isStale: false,
+        lastSyncedAt: snapshot.lastSyncedAt,
+        syncedBy: snapshot.syncedBy
+      }
+    };
+
+    statisticsCache = result;
+    statisticsCacheTime = Date.now();
+    return result;
+  }
+
+  static async getStatistics({ refresh = false } = {}) {
+    if (refresh) {
+      return await DataP3kService.syncStatistics('MANUAL');
+    }
+
+    const now = Date.now();
+    if (statisticsCache && (now - statisticsCacheTime < STATS_CACHE_TTL)) {
+      return statisticsCache;
+    }
+
+    // Baca dari tabel snapshot database (super cepat 1 ms)
+    try {
+      const snapshot = await prisma.statistikSnapshot.findUnique({
+        where: { tipe: 'PENUH_WAKTU' }
+      });
+
+      if (snapshot && snapshot.dataJson) {
+        const parsed = JSON.parse(snapshot.dataJson);
+        const result = {
+          ...parsed,
+          syncInfo: {
+            isStale: snapshot.isStale,
+            lastSyncedAt: snapshot.lastSyncedAt,
+            syncedBy: snapshot.syncedBy
+          }
+        };
+
+        statisticsCache = result;
+        statisticsCacheTime = Date.now();
+        return result;
+      }
+    } catch (err) {
+      console.warn('Error reading statistik snapshot, falling back to sync:', err.message);
+    }
+
+    // Jika belum pernah ada snapshot, jalankan sinkronisasi pertama kali
+    return await DataP3kService.syncStatistics('INITIAL_SYNC');
   }
   static async getDifferences({ page = 1, limit = 10, search = '' }) {
     const skip = (page - 1) * limit;
@@ -265,6 +383,7 @@ export class DataP3kService {
       });
     }
 
+    DataP3kService.invalidateStatisticsCache();
     return updatedData;
   }
 

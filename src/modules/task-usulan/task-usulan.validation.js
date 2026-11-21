@@ -4,7 +4,8 @@ export const autoAssignSchema = Joi.object({
   userIds: Joi.array().items(Joi.string().uuid()).min(1).required(),
   amountPerUser: Joi.number().integer().min(1).required(),
   kegiatan: Joi.string().optional().default('Umum'),
-  tmtFilters: Joi.array().items(Joi.string()).optional()
+  tmtFilters: Joi.array().items(Joi.string()).optional(),
+  tahun: Joi.number().integer().min(2000).max(2100).optional()
 });
 
 export const manualAssignSchema = Joi.object({
@@ -15,7 +16,8 @@ export const manualAssignSchema = Joi.object({
     })
   ).min(1).required(),
   kegiatan: Joi.string().optional().default('Umum'),
-  tmtFilters: Joi.array().items(Joi.string()).optional()
+  tmtFilters: Joi.array().items(Joi.string()).optional(),
+  tahun: Joi.number().integer().min(2000).max(2100).optional()
 });
 
 export const completeTaskSchema = Joi.object({}).unknown(true);

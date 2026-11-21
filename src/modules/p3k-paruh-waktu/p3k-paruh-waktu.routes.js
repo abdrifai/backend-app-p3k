@@ -20,6 +20,7 @@ router.put('/mapping-unor', P3kParuhWaktuController.updateMappingUnor);
 router.put('/bulk-mapping-unor', P3kParuhWaktuController.bulkUpdateMappingUnor);
 router.get('/filters', P3kParuhWaktuController.getFilters);
 router.get('/stats', P3kParuhWaktuController.getStats);
+router.post('/stats/sync', P3kParuhWaktuController.syncStats);
 router.get('/statistics', P3kParuhWaktuController.getStats);
 router.delete('/clear', P3kParuhWaktuController.clearAll);
 router.get('/:id', P3kParuhWaktuController.getById);

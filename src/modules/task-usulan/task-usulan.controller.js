@@ -12,8 +12,8 @@ class TaskUsulanController {
       throw err;
     }
 
-    const { userIds, amountPerUser, tmtFilters } = value;
-    const result = await taskUsulanService.autoAssign({ userIds, amountPerUser, tmtFilters });
+    const { userIds, amountPerUser, tmtFilters, tahun } = value;
+    const result = await taskUsulanService.autoAssign({ userIds, amountPerUser, tmtFilters, tahun });
     
     res.status(200).json({
       success: true,
@@ -30,8 +30,8 @@ class TaskUsulanController {
       throw err;
     }
 
-    const { assignments, tmtFilters } = value;
-    const result = await taskUsulanService.manualAssign({ assignments, tmtFilters });
+    const { assignments, tmtFilters, tahun } = value;
+    const result = await taskUsulanService.manualAssign({ assignments, tmtFilters, tahun });
 
     res.status(200).json({
       success: true,
@@ -78,7 +78,8 @@ class TaskUsulanController {
   });
 
   getReport = asyncHandler(async (req, res) => {
-    const result = await taskUsulanService.getReport();
+    const tahun = req.query.tahun ? parseInt(req.query.tahun) : undefined;
+    const result = await taskUsulanService.getReport(tahun);
 
     res.status(200).json({
       success: true,
@@ -89,7 +90,8 @@ class TaskUsulanController {
   
   resetTasks = asyncHandler(async (req, res) => {
     const userId = req.params.userId;
-    const result = await taskUsulanService.resetTasks(userId);
+    const tahun = req.body.tahun || req.query.tahun ? parseInt(req.body.tahun || req.query.tahun) : undefined;
+    const result = await taskUsulanService.resetTasks(userId, tahun);
     
     res.status(200).json({
       success: true,
@@ -99,7 +101,8 @@ class TaskUsulanController {
   });
 
   resetAllTasks = asyncHandler(async (req, res) => {
-    const result = await taskUsulanService.resetAllTasks();
+    const tahun = req.body.tahun || req.query.tahun ? parseInt(req.body.tahun || req.query.tahun) : undefined;
+    const result = await taskUsulanService.resetAllTasks(tahun);
     
     res.status(200).json({
       success: true,
@@ -110,7 +113,8 @@ class TaskUsulanController {
 
   getMyTaskStats = asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const result = await taskUsulanService.getMyTaskStats(userId);
+    const tahun = req.query.tahun ? parseInt(req.query.tahun) : undefined;
+    const result = await taskUsulanService.getMyTaskStats(userId, tahun);
 
     res.status(200).json({
       success: true,
@@ -120,7 +124,8 @@ class TaskUsulanController {
   });
 
   getUnassignedStats = asyncHandler(async (req, res) => {
-    const result = await taskUsulanService.getUnassignedStats();
+    const tahun = req.query.tahun ? parseInt(req.query.tahun) : undefined;
+    const result = await taskUsulanService.getUnassignedStats(tahun);
 
     res.status(200).json({
       success: true,

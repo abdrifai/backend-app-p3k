@@ -4,13 +4,14 @@ class TaskUsulanRepository {
   /**
    * Assign tasks evenly (or randomly grabbed) to a list of users
    */
-  async autoAssignTasks(userIds, amountPerUser, tmtFilters = []) {
+  async autoAssignTasks(userIds, amountPerUser, tmtFilters = [], tahun = new Date().getFullYear()) {
     let totalAssigned = 0;
+    const targetYear = tahun ? parseInt(tahun) : new Date().getFullYear();
 
     for (const userId of userIds) {
-      // Find assigned P3Ks to exclude them
+      // Find assigned P3Ks for the target year to exclude them
       const assignedRecords = await prisma.taskUsulan.findMany({
-        where: { isDeleted: false },
+        where: { tahun: targetYear, isDeleted: false },
         select: { dataP3kId: true }
       });
       const assignedIds = assignedRecords.map(r => r.dataP3kId);
@@ -40,7 +41,8 @@ class TaskUsulanRepository {
       const newTasks = unassignedData.map(d => ({
         dataP3kId: d.id,
         assignedToUserId: userId,
-        isCompleted: false
+        isCompleted: false,
+        tahun: targetYear
       }));
 
       const { count } = await prisma.taskUsulan.createMany({
@@ -56,14 +58,15 @@ class TaskUsulanRepository {
   /**
    * Manual assignment based on an array of objects
    */
-  async manualAssignTasks(assignments, tmtFilters = []) {
+  async manualAssignTasks(assignments, tmtFilters = [], tahun = new Date().getFullYear()) {
     let totalAssigned = 0;
+    const targetYear = tahun ? parseInt(tahun) : new Date().getFullYear();
 
     for (const { userId, amount } of assignments) {
       if (amount <= 0) continue;
 
       const assignedRecords = await prisma.taskUsulan.findMany({
-        where: { isDeleted: false },
+        where: { tahun: targetYear, isDeleted: false },
         select: { dataP3kId: true }
       });
       const assignedIds = assignedRecords.map(r => r.dataP3kId);
@@ -91,7 +94,8 @@ class TaskUsulanRepository {
       const newTasks = unassignedData.map(d => ({
         dataP3kId: d.id,
         assignedToUserId: userId,
-        isCompleted: false
+        isCompleted: false,
+        tahun: targetYear
       }));
 
       const { count } = await prisma.taskUsulan.createMany({
@@ -107,11 +111,12 @@ class TaskUsulanRepository {
   /**
    * Get tasks (TaskUsulan) assigned to a specific user that are NOT completed
    */
-  async getTasksByUser(userId, { skip = 0, take = 10, search = '' }) {
+  async getTasksByUser(userId, { skip = 0, take = 10, search = '', tahun }) {
     const where = {
       assignedToUserId: userId,
       isCompleted: false,
       isDeleted: false,
+      ...(tahun ? { tahun: parseInt(tahun) } : {}),
       ...(search ? {
         dataP3k: {
           OR: [
@@ -186,19 +191,21 @@ class TaskUsulanRepository {
   /**
    * Generate a report of all users and their task completion stats
    */
-  async getTaskReport() {
+  async getTaskReport(tahun = new Date().getFullYear()) {
+    const targetYear = tahun ? parseInt(tahun) : new Date().getFullYear();
+
     // We get grouping from DB, then map it by user
     const [assignedGroup, completedGroup, users] = await Promise.all([
-      // Count total assigned to each user
+      // Count total assigned to each user for target year
       prisma.taskUsulan.groupBy({
         by: ['assignedToUserId'],
-        where: { isDeleted: false },
+        where: { tahun: targetYear, isDeleted: false },
         _count: { id: true }
       }),
-      // Count total completed by each user
+      // Count total completed by each user for target year
       prisma.taskUsulan.groupBy({
         by: ['assignedToUserId'],
-        where: { isCompleted: true, isDeleted: false },
+        where: { tahun: targetYear, isCompleted: true, isDeleted: false },
         _count: { id: true }
       }),
       // Get the list of users
@@ -227,12 +234,14 @@ class TaskUsulanRepository {
   /**
    * Reset assignments for specific users (unassign unfinished tasks by removing them)
    */
-  async unassignUserTasks(userId) {
+  async unassignUserTasks(userId, tahun) {
+    const where = {
+      assignedToUserId: userId,
+      isCompleted: false,
+      ...(tahun ? { tahun: parseInt(tahun) } : {})
+    };
     const { count } = await prisma.taskUsulan.deleteMany({
-      where: {
-        assignedToUserId: userId,
-        isCompleted: false
-      }
+      where
     });
     return count;
   }
@@ -240,11 +249,13 @@ class TaskUsulanRepository {
   /**
    * Reset assignments for ALL users (unassign unfinished tasks everywhere)
    */
-  async unassignAllTasks() {
+  async unassignAllTasks(tahun) {
+    const where = {
+      isCompleted: false,
+      ...(tahun ? { tahun: parseInt(tahun) } : {})
+    };
     const { count } = await prisma.taskUsulan.deleteMany({
-      where: {
-        isCompleted: false
-      }
+      where
     });
     return count;
   }
@@ -252,15 +263,18 @@ class TaskUsulanRepository {
   /**
    * Get task statistics by TMT for a specific user
    */
-  async getTaskTmtStatsByUser(userId) {
+  async getTaskTmtStatsByUser(userId, tahun) {
+    const where = {
+      assignedToUserId: userId,
+      isDeleted: false,
+      ...(tahun ? { tahun: parseInt(tahun) } : {}),
+      dataP3k: {
+        tmtCpns: { not: null, not: '' }
+      }
+    };
+
     const tasks = await prisma.taskUsulan.findMany({
-      where: {
-        assignedToUserId: userId,
-        isDeleted: false,
-        dataP3k: {
-          tmtCpns: { not: null, not: '' }
-        }
-      },
+      where,
       select: {
         isCompleted: true,
         dataP3k: {
@@ -318,10 +332,12 @@ class TaskUsulanRepository {
     return Object.values(grouped).sort((a, b) => b.sortKey - a.sortKey);
   }
 
-  async getUnassignedTmtStats() {
-    // 1. Get all assigned DataP3k IDs
+  async getUnassignedTmtStats(tahun = new Date().getFullYear()) {
+    const targetYear = tahun ? parseInt(tahun) : new Date().getFullYear();
+
+    // 1. Get all assigned DataP3k IDs for the target year
     const assignedRecords = await prisma.taskUsulan.findMany({
-      where: { isDeleted: false },
+      where: { tahun: targetYear, isDeleted: false },
       select: { dataP3kId: true }
     });
     const assignedIds = assignedRecords.map(r => r.dataP3kId);
@@ -343,9 +359,10 @@ class TaskUsulanRepository {
   /**
    * Search all assigned tasks (TaskUsulan) with pagination and filter
    */
-  async searchAssignedTasks({ skip = 0, take = 10, search = '' }) {
+  async searchAssignedTasks({ skip = 0, take = 10, search = '', tahun }) {
     const where = {
       isDeleted: false,
+      ...(tahun ? { tahun: parseInt(tahun) } : {}),
       ...(search ? {
         dataP3k: {
           OR: [

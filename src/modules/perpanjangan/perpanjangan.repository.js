@@ -201,6 +201,27 @@ export class PerpanjanganRepository {
     });
   }
 
+  static async getLatestContractInfo(dataP3kId) {
+    const [latestRiwayat, latestUsulan] = await Promise.all([
+      prisma.riwayatKontrak.findFirst({
+        where: { dataP3kId, isDeleted: false },
+        orderBy: [
+          { kontrakKe: 'desc' },
+          { tanggalSelesai: 'desc' }
+        ]
+      }),
+      prisma.usulanPerpanjangan.findFirst({
+        where: { dataP3kId, isDeleted: false, status: { not: 'REJECTED' } },
+        orderBy: [
+          { kontrakKe: 'desc' },
+          { tanggalSelesai: 'desc' }
+        ]
+      })
+    ]);
+
+    return { latestRiwayat, latestUsulan };
+  }
+
   static async findMaxSequence(year) {
     const pattern = `%/${year}`;
     

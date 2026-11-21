@@ -107,8 +107,9 @@ export class DataP3kController {
     const jabatanNama = req.query.jabatanNama || '';
     const jenisKelamin = req.query.jenisKelamin || '';
     const kategori = req.query.kategori || 'ALL';
+    const kelompokJabatan = req.query.kelompokJabatan || '';
 
-    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kategori });
+    const result = await DataP3kService.getAllDataP3k({ page, limit, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kategori, kelompokJabatan });
 
     res.status(200).json({
       success: true,
@@ -221,11 +222,23 @@ export class DataP3kController {
    *         description: Berhasil mengambil data statistik utama
    */
   static getStatistics = asyncHandler(async (req, res) => {
-    const stats = await DataP3kService.getStatistics();
+    const refresh = req.query.refresh === 'true' || req.query.refresh === '1';
+    const stats = await DataP3kService.getStatistics({ refresh });
 
     res.status(200).json({
       success: true,
       message: 'Berhasil mengambil informasi statistik data P3K utama',
+      data: stats
+    });
+  });
+
+  static syncStatistics = asyncHandler(async (req, res) => {
+    const syncedBy = req.user?.namaLengkap || req.user?.username || 'User';
+    const stats = await DataP3kService.syncStatistics(syncedBy);
+
+    res.status(200).json({
+      success: true,
+      message: 'Berhasil melakukan sinkronisasi data statistik P3K',
       data: stats
     });
   });

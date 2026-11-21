@@ -206,6 +206,27 @@ export class P3kParuhWaktuRepository {
     const kawinMap = new Map();
     const pengangkatanMap = new Map();
 
+    const nakesKeywords = [
+      'perawat', 'bidan', 'dokter', 'kesehatan', 'apoteker', 'nutrisionis',
+      'sanitarian', 'sanitasi', 'radiografer', 'laboratorium kesehatan',
+      'fisioterapis', 'terapis', 'epidemiolog', 'perekam medis',
+      'refraksionis', 'optometris', 'okupasi', 'ortotis', 'psikolog klinis',
+      'entomolog', 'administrator kesehatan', 'fisikawan medis'
+    ];
+
+    const getKelompokJabatan = (name) => {
+      const l = (name || '').toLowerCase();
+      if (l.includes('guru')) return 'Guru';
+      if (nakesKeywords.some((k) => l.includes(k))) return 'Kesehatan';
+      return 'Teknis';
+    };
+
+    const kelompokMap = new Map([
+      ['Guru', { label: 'Guru', count: 0, laki: 0, perempuan: 0, jabatanMap: new Map() }],
+      ['Kesehatan', { label: 'Kesehatan', count: 0, laki: 0, perempuan: 0, jabatanMap: new Map() }],
+      ['Teknis', { label: 'Teknis', count: 0, laki: 0, perempuan: 0, jabatanMap: new Map() }]
+    ]);
+
     const ageRanges = [
       { label: '< 30 Tahun', min: 0, max: 29, count: 0, laki: 0, perempuan: 0 },
       { label: '30 - 39 Tahun', min: 30, max: 39, count: 0, laki: 0, perempuan: 0 },
@@ -305,6 +326,22 @@ export class P3kParuhWaktuRepository {
       incMapWithGender(agamaMap, r.agamaNama, 'Tidak Diketahui');
       incMapWithGender(kawinMap, r.jenisKawinNama, 'Tidak Diketahui');
 
+      // Kelompok Jabatan (Guru, Kesehatan, Teknis)
+      const kelLabel = getKelompokJabatan(r.jabatanNama);
+      const kelEntry = kelompokMap.get(kelLabel) || kelompokMap.get('Teknis');
+      kelEntry.count++;
+      if (g === 'L') kelEntry.laki++;
+      if (g === 'P') kelEntry.perempuan++;
+
+      const jName = (r.jabatanNama && r.jabatanNama.trim()) ? r.jabatanNama.trim() : 'Belum Ditentukan';
+      if (!kelEntry.jabatanMap.has(jName)) {
+        kelEntry.jabatanMap.set(jName, { label: jName, count: 0, laki: 0, perempuan: 0 });
+      }
+      const jEntry = kelEntry.jabatanMap.get(jName);
+      jEntry.count++;
+      if (g === 'L') jEntry.laki++;
+      if (g === 'P') jEntry.perempuan++;
+
       // Pengangkatan (TMT CPNS)
       if (r.tmtCpns) {
         const p = r.tmtCpns.trim().split('-');
@@ -375,6 +412,46 @@ export class P3kParuhWaktuRepository {
         };
       });
 
+    const byKelompokJabatan = Array.from(kelompokMap.values()).map((kel) => {
+      const kTotal = kel.count;
+      const jabatanList = Array.from(kel.jabatanMap.values()).map((j) => {
+        const jTot = j.count;
+        return {
+          ...j,
+          count: jTot,
+          total: jTot,
+          totalCount: jTot,
+          persenTotal: kTotal > 0 ? Number(((jTot / kTotal) * 100).toFixed(1)) : 0,
+          persenLaki: jTot > 0 ? Number(((j.laki / jTot) * 100).toFixed(1)) : 0,
+          persenPerempuan: jTot > 0 ? Number(((j.perempuan / jTot) * 100).toFixed(1)) : 0
+        };
+      });
+      jabatanList.sort((a, b) => b.count - a.count);
+
+      return {
+        label: kel.label,
+        kelompokJabatan: kel.label,
+        filterValue: kel.label.toUpperCase(),
+        count: kTotal,
+        total: kTotal,
+        totalCount: kTotal,
+        laki: kel.laki,
+        totalLaki: kel.laki,
+        perempuan: kel.perempuan,
+        totalPerempuan: kel.perempuan,
+        persenTotal: total > 0 ? Number(((kTotal / total) * 100).toFixed(1)) : 0,
+        persenLaki: kTotal > 0 ? Number(((kel.laki / kTotal) * 100).toFixed(1)) : 0,
+        persenPerempuan: kTotal > 0 ? Number(((kel.perempuan / kTotal) * 100).toFixed(1)) : 0,
+        totalJabatan: jabatanList.length,
+        jabatanList
+      };
+    });
+
+    const defaultKel = { count: 0, total: 0, totalCount: 0, laki: 0, totalLaki: 0, perempuan: 0, totalPerempuan: 0, persenLaki: 0, persenPerempuan: 0, persenTotal: 0, totalJabatan: 0, jabatanList: [] };
+    const guruK = byKelompokJabatan.find((k) => k.label === 'Guru') || { ...defaultKel, label: 'Guru', kelompokJabatan: 'Guru' };
+    const kesehatanK = byKelompokJabatan.find((k) => k.label === 'Kesehatan') || { ...defaultKel, label: 'Kesehatan', kelompokJabatan: 'Kesehatan' };
+    const teknisK = byKelompokJabatan.find((k) => k.label === 'Teknis') || { ...defaultKel, label: 'Teknis', kelompokJabatan: 'Teknis' };
+
     const persenLaki = total > 0 ? Number(((laki / total) * 100).toFixed(1)) : 0;
     const persenPerempuan = total > 0 ? Number(((perempuan / total) * 100).toFixed(1)) : 0;
     const avgAge = ageCount > 0 ? Number((totalAge / ageCount).toFixed(1)) : 0;
@@ -393,7 +470,15 @@ export class P3kParuhWaktuRepository {
         minAge: minAge < 120 ? minAge : 0,
         maxAge,
         totalUnitKerja: byUnor.length,
-        totalJabatan: byJabatan.length
+        totalJabatan: byJabatan.length,
+        guru: guruK.count,
+        kesehatan: kesehatanK.count,
+        teknis: teknisK.count
+      },
+      rekapKelompok: {
+        guru: guruK,
+        kesehatan: kesehatanK,
+        teknis: teknisK
       },
       total,
       gender: {
@@ -403,6 +488,7 @@ export class P3kParuhWaktuRepository {
       },
       byPendidikan,
       byJabatan,
+      byKelompokJabatan,
       byJenisJabatan,
       byUnor,
       byAgeRange,
@@ -559,7 +645,8 @@ export class P3kParuhWaktuRepository {
     agamaNama = '',
     jenisKawinNama = '',
     tmtCpns = '',
-    ageRange = ''
+    ageRange = '',
+    kelompokJabatan = ''
   } = {}) {
     const skip = (page - 1) * limit;
     const where = { isDeleted: false };
@@ -603,6 +690,27 @@ export class P3kParuhWaktuRepository {
         where.OR = [{ jabatanNama: null }, { jabatanNama: '' }];
       } else {
         where.jabatanNama = jabatanNama;
+      }
+    }
+
+    if (kelompokJabatan) {
+      const kj = String(kelompokJabatan).trim().toUpperCase();
+      const nakesKws = [
+        'perawat', 'bidan', 'dokter', 'kesehatan', 'apoteker', 'nutrisionis',
+        'sanitarian', 'sanitasi', 'radiografer', 'laboratorium kesehatan',
+        'fisioterapis', 'terapis', 'epidemiolog', 'perekam medis',
+        'refraksionis', 'optometris', 'okupasi', 'ortotis', 'psikolog klinis',
+        'entomolog', 'administrator kesehatan', 'fisikawan medis'
+      ];
+      if (kj === 'GURU') {
+        where.jabatanNama = { contains: 'guru' };
+      } else if (kj === 'KESEHATAN' || kj === 'NAKES') {
+        where.OR = nakesKws.map((k) => ({ jabatanNama: { contains: k } }));
+      } else if (kj === 'TEKNIS') {
+        where.NOT = [
+          { jabatanNama: { contains: 'guru' } },
+          ...nakesKws.map((k) => ({ jabatanNama: { contains: k } }))
+        ];
       }
     }
 

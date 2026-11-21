@@ -49,7 +49,22 @@ export class DataP3kRepository {
     return totalInserted;
   }
 
-  static _buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }) {
+  static NAKES_KEYWORDS = [
+    'perawat', 'bidan', 'dokter', 'kesehatan', 'apoteker', 'nutrisionis',
+    'sanitarian', 'sanitasi', 'radiografer', 'laboratorium kesehatan',
+    'fisioterapis', 'terapis', 'epidemiolog', 'perekam medis',
+    'refraksionis', 'optometris', 'okupasi', 'ortotis', 'psikolog klinis',
+    'entomolog', 'administrator kesehatan', 'fisikawan medis'
+  ];
+
+  static getKelompokJabatan(jabatanNama) {
+    const l = (jabatanNama || '').toLowerCase();
+    if (l.includes('guru')) return 'Guru';
+    if (DataP3kRepository.NAKES_KEYWORDS.some((k) => l.includes(k))) return 'Kesehatan';
+    return 'Teknis';
+  }
+
+  static _buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan }) {
     let where = { AND: [{ isDeleted: false }] };
 
     if (search) {
@@ -107,6 +122,24 @@ export class DataP3kRepository {
       where.AND.push({ jabatanNama: jabatanNama });
     }
 
+    if (kelompokJabatan) {
+      const kj = String(kelompokJabatan).trim().toUpperCase();
+      if (kj === 'GURU') {
+        where.AND.push({ jabatanNama: { contains: 'guru' } });
+      } else if (kj === 'KESEHATAN' || kj === 'NAKES') {
+        where.AND.push({
+          OR: DataP3kRepository.NAKES_KEYWORDS.map((k) => ({ jabatanNama: { contains: k } }))
+        });
+      } else if (kj === 'TEKNIS') {
+        where.AND.push({
+          NOT: [
+            { jabatanNama: { contains: 'guru' } },
+            ...DataP3kRepository.NAKES_KEYWORDS.map((k) => ({ jabatanNama: { contains: k } }))
+          ]
+        });
+      }
+    }
+
     if (jenisKelamin) {
       const jk = jenisKelamin.toUpperCase();
       if (jk === 'L' || jk === 'M' || jk.includes('LAKI')) {
@@ -127,8 +160,8 @@ export class DataP3kRepository {
     return where;
   }
 
-  static async findAll({ skip, take, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin }) {
-    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
+  static async findAll({ skip, take, search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan }) {
+    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan });
 
     return prisma.dataP3k.findMany({
       where,
@@ -145,8 +178,8 @@ export class DataP3kRepository {
     });
   }
 
-  static async count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin } = {}) {
-    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin });
+  static async count({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan } = {}) {
+    const where = this._buildWhereClause({ search, unorIndukId, unitKerja, unitKerjaKosong, unitKerjaAda, statusPensiun, tmtCpns, pendidikan, golongan, jenisJabatan, jabatanNama, jenisKelamin, kelompokJabatan });
     return prisma.dataP3k.count({ where });
   }
 
@@ -312,6 +345,73 @@ export class DataP3kRepository {
 
     list.sort((a, b) => b.totalCount - a.totalCount);
     return list;
+  }
+
+  static async groupJabatanByKelompokWithGender(additionalWhere = {}) {
+    const results = await prisma.dataP3k.groupBy({
+      by: ['jabatanNama', 'jenisKelamin'],
+      where: { isDeleted: false, ...additionalWhere },
+      _count: { id: true }
+    });
+
+    const kelompokMap = new Map([
+      ['Guru', { label: 'Guru', count: 0, laki: 0, perempuan: 0, jabatanMap: new Map() }],
+      ['Kesehatan', { label: 'Kesehatan', count: 0, laki: 0, perempuan: 0, jabatanMap: new Map() }],
+      ['Teknis', { label: 'Teknis', count: 0, laki: 0, perempuan: 0, jabatanMap: new Map() }]
+    ]);
+
+    for (const r of results) {
+      const jName = r.jabatanNama || 'Tidak Diketahui';
+      const kelLabel = DataP3kRepository.getKelompokJabatan(jName);
+      const count = r._count.id;
+      const kelEntry = kelompokMap.get(kelLabel) || kelompokMap.get('Teknis');
+
+      kelEntry.count += count;
+
+      const val = (r.jenisKelamin || '').toUpperCase();
+      const isL = val === 'M' || val === 'L' || val === '1' || val.includes('LAKI');
+      const isP = val === 'F' || val === 'P' || val === '2' || val.includes('PEREMPUAN');
+
+      if (isL) kelEntry.laki += count;
+      if (isP) kelEntry.perempuan += count;
+
+      if (!kelEntry.jabatanMap.has(jName)) {
+        kelEntry.jabatanMap.set(jName, { label: jName, count: 0, laki: 0, perempuan: 0 });
+      }
+      const jEntry = kelEntry.jabatanMap.get(jName);
+      jEntry.count += count;
+      if (isL) jEntry.laki += count;
+      if (isP) jEntry.perempuan += count;
+    }
+
+    return Array.from(kelompokMap.values()).map((kel) => {
+      const total = kel.count;
+      const jabatanList = Array.from(kel.jabatanMap.values()).map((j) => {
+        const jTot = j.count;
+        return {
+          ...j,
+          totalCount: jTot,
+          persenLaki: jTot > 0 ? Number(((j.laki / jTot) * 100).toFixed(1)) : 0,
+          persenPerempuan: jTot > 0 ? Number(((j.perempuan / jTot) * 100).toFixed(1)) : 0
+        };
+      });
+      jabatanList.sort((a, b) => b.count - a.count);
+
+      return {
+        label: kel.label,
+        kelompokJabatan: kel.label,
+        count: total,
+        totalCount: total,
+        laki: kel.laki,
+        totalLaki: kel.laki,
+        perempuan: kel.perempuan,
+        totalPerempuan: kel.perempuan,
+        persenLaki: total > 0 ? Number(((kel.laki / total) * 100).toFixed(1)) : 0,
+        persenPerempuan: total > 0 ? Number(((kel.perempuan / total) * 100).toFixed(1)) : 0,
+        totalJabatan: jabatanList.length,
+        jabatanList
+      };
+    });
   }
 
   static async groupByUnorInduk(additionalWhere = {}) {

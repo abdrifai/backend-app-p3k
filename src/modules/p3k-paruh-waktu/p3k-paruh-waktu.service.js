@@ -2,6 +2,10 @@ import csv from 'csv-parser';
 import { Readable } from 'stream';
 import crypto from 'crypto';
 import { P3kParuhWaktuRepository } from './p3k-paruh-waktu.repository.js';
+import prisma from '../../config/database.js';
+
+const statsCache = new Map();
+const STATS_CACHE_TTL = 15 * 60 * 1000; // 15 menit cache TTL
 
 const ALLOWED_FIELDS = new Set([
   'pnsId', 'nipBaru', 'nipLama', 'nama', 'gelarDepan', 'gelarBelakang',
@@ -130,6 +134,7 @@ export class P3kParuhWaktuService {
   static async syncAllToMaster() {
     const allRecords = await P3kParuhWaktuRepository.findMany({ page: 1, limit: 100000 });
     const count = await P3kParuhWaktuRepository.syncToDataP3kParuhWaktu(allRecords.data || []);
+    P3kParuhWaktuService.invalidateStatsCache();
     return { syncedCount: count };
   }
 
@@ -144,14 +149,18 @@ export class P3kParuhWaktuService {
    * Update Unor Induk Mapping for single DataP3kParuhWaktu
    */
   static async updateMasterMappingUnor(id, unorIndukId) {
-    return P3kParuhWaktuRepository.updateMasterMappingUnor(id, unorIndukId);
+    const res = await P3kParuhWaktuRepository.updateMasterMappingUnor(id, unorIndukId);
+    P3kParuhWaktuService.invalidateStatsCache();
+    return res;
   }
 
   /**
    * Bulk Update Unor Induk Mapping for DataP3kParuhWaktu
    */
   static async bulkUpdateMasterMappingUnor(ids, unorIndukId) {
-    return P3kParuhWaktuRepository.bulkUpdateMasterMappingUnor(ids, unorIndukId);
+    const res = await P3kParuhWaktuRepository.bulkUpdateMasterMappingUnor(ids, unorIndukId);
+    P3kParuhWaktuService.invalidateStatsCache();
+    return res;
   }
 
   /**
@@ -179,19 +188,123 @@ export class P3kParuhWaktuService {
     return { unorList, golonganList };
   }
 
+  static invalidateStatsCache() {
+    statsCache.clear();
+    P3kParuhWaktuService.markStatsStale().catch(() => {});
+  }
+
+  static async markStatsStale() {
+    try {
+      await prisma.statistikSnapshot.updateMany({
+        where: { tipe: 'PARUH_WAKTU' },
+        data: { isStale: true }
+      });
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  /**
+   * Sync summary stats snapshot to database
+   * @param {string} [syncedBy='SYSTEM']
+   */
+  static async syncStats(syncedBy = 'SYSTEM') {
+    const data = await P3kParuhWaktuRepository.getStats({ source: 'master' });
+    const now = new Date();
+
+    const snapshot = await prisma.statistikSnapshot.upsert({
+      where: { tipe: 'PARUH_WAKTU' },
+      update: {
+        dataJson: JSON.stringify(data),
+        totalPegawai: data.summary?.total || 0,
+        totalGuru: data.rekapKelompok?.guru?.total || data.rekapKelompok?.guru?.count || 0,
+        totalKesehatan: data.rekapKelompok?.kesehatan?.total || data.rekapKelompok?.kesehatan?.count || 0,
+        totalTeknis: data.rekapKelompok?.teknis?.total || data.rekapKelompok?.teknis?.count || 0,
+        isStale: false,
+        lastSyncedAt: now,
+        syncedBy
+      },
+      create: {
+        tipe: 'PARUH_WAKTU',
+        dataJson: JSON.stringify(data),
+        totalPegawai: data.summary?.total || 0,
+        totalGuru: data.rekapKelompok?.guru?.total || data.rekapKelompok?.guru?.count || 0,
+        totalKesehatan: data.rekapKelompok?.kesehatan?.total || data.rekapKelompok?.kesehatan?.count || 0,
+        totalTeknis: data.rekapKelompok?.teknis?.total || data.rekapKelompok?.teknis?.count || 0,
+        isStale: false,
+        lastSyncedAt: now,
+        syncedBy
+      }
+    });
+
+    const result = {
+      ...data,
+      syncInfo: {
+        isStale: false,
+        lastSyncedAt: snapshot.lastSyncedAt,
+        syncedBy: snapshot.syncedBy
+      }
+    };
+
+    statsCache.set('master', { data: result, time: Date.now() });
+    return result;
+  }
+
   /**
    * Get summary stats
    * @param {Object} [query={}]
    */
   static async getStats(query = {}) {
     const source = query?.source === 'staging' ? 'staging' : 'master';
-    return P3kParuhWaktuRepository.getStats({ source });
+    const refresh = query?.refresh === true || query?.refresh === 'true' || query?.refresh === '1';
+
+    if (source === 'staging') {
+      return P3kParuhWaktuRepository.getStats({ source });
+    }
+
+    if (refresh) {
+      return await P3kParuhWaktuService.syncStats('MANUAL');
+    }
+
+    const now = Date.now();
+    const cached = statsCache.get('master');
+    if (cached && (now - cached.time < STATS_CACHE_TTL)) {
+      return cached.data;
+    }
+
+    // Coba baca dari tabel snapshot database (1 ms)
+    try {
+      const snapshot = await prisma.statistikSnapshot.findUnique({
+        where: { tipe: 'PARUH_WAKTU' }
+      });
+
+      if (snapshot && snapshot.dataJson) {
+        const parsed = JSON.parse(snapshot.dataJson);
+        const result = {
+          ...parsed,
+          syncInfo: {
+            isStale: snapshot.isStale,
+            lastSyncedAt: snapshot.lastSyncedAt,
+            syncedBy: snapshot.syncedBy
+          }
+        };
+
+        statsCache.set('master', { data: result, time: Date.now() });
+        return result;
+      }
+    } catch (err) {
+      console.warn('Error reading paruh waktu snapshot:', err.message);
+    }
+
+    // Jika belum ada snapshot, sinkronkan pertama kali
+    return await P3kParuhWaktuService.syncStats('INITIAL_SYNC');
   }
 
   /**
    * Clear all imported data
    */
   static async clearAll() {
+    statsCache.clear();
     await P3kParuhWaktuRepository.deleteAllMaster();
     return P3kParuhWaktuRepository.deleteAll();
   }
@@ -200,6 +313,7 @@ export class P3kParuhWaktuService {
    * Delete single
    */
   static async deleteById(id) {
+    statsCache.clear();
     return P3kParuhWaktuRepository.deleteById(id);
   }
 

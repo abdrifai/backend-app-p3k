@@ -16,7 +16,8 @@ export const p3kParuhWaktuQuerySchema = Joi.object({
   agamaNama: Joi.string().allow('', null).optional(),
   jenisKawinNama: Joi.string().allow('', null).optional(),
   tmtCpns: Joi.string().allow('', null).optional(),
-  ageRange: Joi.string().allow('', null).optional()
+  ageRange: Joi.string().allow('', null).optional(),
+  kelompokJabatan: Joi.string().allow('', null).optional()
 });
 
 export const importParuhWaktuOptionSchema = Joi.object({
@@ -24,6 +25,7 @@ export const importParuhWaktuOptionSchema = Joi.object({
 });
 
 export const p3kParuhWaktuStatsQuerySchema = Joi.object({
-  source: Joi.string().valid('master', 'staging').default('master')
+  source: Joi.string().valid('master', 'staging').default('master'),
+  refresh: Joi.boolean().default(false)
 });
 

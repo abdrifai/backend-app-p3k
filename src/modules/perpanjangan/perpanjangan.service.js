@@ -901,7 +901,41 @@ export class PerpanjanganService {
     // Format: 800.1.13.2/0001/PPPK.Ts/BKPSDMD-B.TU/2026
     const nomorKontrak = `800.1.13.2/${nextSeq}/${type}/BKPSDMD-B.TU/${year}`;
     
-    return { nomorKontrak, nextSeq, type, year };
+    // Calculate suggested kontrakKe and dates from previous contracts/usulan
+    const { latestRiwayat, latestUsulan } = await PerpanjanganRepository.getLatestContractInfo(pegawai.id);
+
+    const prevKontrakKe = Math.max(latestRiwayat?.kontrakKe || 0, latestUsulan?.kontrakKe || 0);
+    const suggestedKontrakKe = prevKontrakKe > 0 ? prevKontrakKe + 1 : 1;
+
+    let suggestedTanggalMulai = `${year}-01-01`;
+    let suggestedTanggalSelesai = `${year}-12-31`;
+    let suggestedTanggalTtd = `${year}-01-02`;
+
+    const lastEnd = latestUsulan?.tanggalSelesai || latestRiwayat?.tanggalSelesai;
+    if (lastEnd && !isNaN(new Date(lastEnd).getTime())) {
+      const prevEndDate = new Date(lastEnd);
+      const nextStartDate = new Date(prevEndDate);
+      nextStartDate.setDate(nextStartDate.getDate() + 1);
+
+      const nextEndDate = new Date(nextStartDate);
+      nextEndDate.setFullYear(nextEndDate.getFullYear() + 1);
+      nextEndDate.setDate(nextEndDate.getDate() - 1);
+
+      suggestedTanggalMulai = nextStartDate.toISOString().split('T')[0];
+      suggestedTanggalSelesai = nextEndDate.toISOString().split('T')[0];
+      suggestedTanggalTtd = suggestedTanggalMulai;
+    }
+
+    return { 
+      nomorKontrak, 
+      nextSeq, 
+      type, 
+      year,
+      suggestedKontrakKe,
+      suggestedTanggalMulai,
+      suggestedTanggalSelesai,
+      suggestedTanggalTtd
+    };
   }
 
   static async getDashboardStats() {

@@ -644,6 +644,7 @@ model TabelGaji {
 
 model TaskUsulan {
   id               String    @id @default(uuid()) @db.VarChar(36)
+  tahun            Int       @default(2026)
   dataP3kId        String    @db.VarChar(36)
   assignedToUserId String    @db.VarChar(36)
   kegiatan         String    @default("Umum") @db.VarChar(150)
@@ -657,6 +658,7 @@ model TaskUsulan {
 
   @@index([assignedToUserId])
   @@index([dataP3kId])
+  @@index([tahun])
   @@map("task_usulan_pk")
 }
 
@@ -1010,6 +1012,25 @@ model LogTandaTangan {
   @@index([userId])
   @@index([tahap])
   @@map("log_tanda_tangan")
+}
+
+model StatistikSnapshot {
+  id             String    @id @default(uuid())
+  tipe           String    @unique @db.VarChar(50) // 'PENUH_WAKTU' | 'PARUH_WAKTU'
+  dataJson       String    @db.LongText
+  totalPegawai   Int       @default(0)
+  totalGuru      Int       @default(0)
+  totalKesehatan Int       @default(0)
+  totalTeknis    Int       @default(0)
+  isStale        Boolean   @default(false)
+  lastSyncedAt   DateTime  @default(now())
+  syncedBy       String?   @db.VarChar(100)
+  isDeleted      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([tipe])
+  @@map("rekap_statistik_snapshot")
 }
 
 

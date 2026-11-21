@@ -19,6 +19,7 @@ router.post('/revert-pension', pensiunAuth, DataP3kController.revertPensiun);
 router.get('/pensiun', DataP3kController.getAllPensiun);
 router.get('/pensioned', DataP3kController.getAllPensiun);
 router.get('/statistics', DataP3kController.getStatistics);
+router.post('/statistics/sync', DataP3kController.syncStatistics);
 router.get('/retirement', DataP3kController.getRetirementReport);
 router.get('/differences', DataP3kController.getDifferences);
 router.get('/mapping-unor', DataP3kController.getMappingUnor);

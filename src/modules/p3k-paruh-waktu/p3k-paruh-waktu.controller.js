@@ -149,6 +149,20 @@ export class P3kParuhWaktuController {
     }
   }
 
+  static async syncStats(req, res, next) {
+    try {
+      const syncedBy = req.user?.namaLengkap || req.user?.username || 'User';
+      const stats = await P3kParuhWaktuService.syncStats(syncedBy);
+      return res.status(200).json({
+        success: true,
+        data: stats,
+        message: 'Statistik P3K Paruh Waktu berhasil disinkronkan'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   /**
    * Clear all imported data
    */
